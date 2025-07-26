@@ -20,7 +20,8 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
           try {
             const response = await fetch(data.dictPath)
             const text = await response.text()
-            charDict = ['<blank>', ...text.trim().split('\n')]
+            // PaddleOCR dictionary already includes blank token at index 0
+            charDict = text.trim().split('\n')
           } catch (error) {
             console.warn('Failed to load dictionary, using default:', error)
             charDict = generateDefaultCharDict()
