@@ -1,4 +1,14 @@
 import * as ort from 'onnxruntime-web'
+import { getAssetPath } from './config'
+
+// Configure ONNX Runtime for the correct environment
+const configureOnnxRuntime = () => {
+  // Set the WASM paths to use the correct base URL
+  ort.env.wasm.wasmPaths = getAssetPath('/') + '/'
+}
+
+// Initialize ONNX Runtime configuration
+configureOnnxRuntime()
 
 export interface ModelLoadOptions {
   modelPath: string

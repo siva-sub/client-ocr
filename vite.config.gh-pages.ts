@@ -71,6 +71,18 @@ export default defineConfig({
   ],
   build: {
     outDir: 'docs',
-    assetsInlineLimit: 0
-  }
+    assetsInlineLimit: 0,
+    rollupOptions: {
+      output: {
+        assetFileNames: (assetInfo) => {
+          // Keep original paths for ONNX models
+          if (assetInfo.name?.endsWith('.onnx') || assetInfo.name?.endsWith('.txt')) {
+            return '[name][extname]'
+          }
+          return 'assets/[name]-[hash][extname]'
+        }
+      }
+    }
+  },
+  assetsInclude: ['**/*.onnx', '**/*.txt']
 })

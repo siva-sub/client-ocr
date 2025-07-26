@@ -134,7 +134,9 @@ export function OCRInterface() {
       
       // Load PDF.js
       const pdfjsLib = await import('pdfjs-dist')
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+      // Use the bundled worker to avoid CORS issues
+      const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
+      pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker.default
       
       // Load PDF
       const arrayBuffer = await file.arrayBuffer()

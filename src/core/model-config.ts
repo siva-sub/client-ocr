@@ -1,3 +1,5 @@
+import { getModelPath } from './config'
+
 export interface ModelConfig {
   id: string
   name: string
@@ -28,10 +30,10 @@ export const MODEL_CONFIGS: ModelConfig[] = [
     type: 'mobile',
     version: 'v5',
     paths: {
-      detection: '/models/ppocrv5/det.onnx',
-      recognition: '/models/ppocrv5/rec.onnx',
-      classification: '/models/ppocrv5/cls.onnx',
-      dictionary: '/models/ppocrv5/dict.txt'
+      detection: getModelPath('/models/ppocrv5/det.onnx'),
+      recognition: getModelPath('/models/ppocrv5/rec.onnx'),
+      classification: getModelPath('/models/ppocrv5/cls.onnx'),
+      dictionary: getModelPath('/models/ppocrv5/dict.txt')
     },
     sizes: {
       detection: '4.6MB',
@@ -49,10 +51,10 @@ export const MODEL_CONFIGS: ModelConfig[] = [
     type: 'mobile',
     version: 'v4',
     paths: {
-      detection: '/models/ppocrv4/det.onnx',
-      recognition: '/models/ppocrv4/rec.onnx',
-      classification: '/models/ppocrv4/cls.onnx',
-      dictionary: '/models/ppocrv4/dict.txt'
+      detection: getModelPath('/models/ppocrv4/det.onnx'),
+      recognition: getModelPath('/models/ppocrv4/rec.onnx'),
+      classification: getModelPath('/models/ppocrv4/cls.onnx'),
+      dictionary: getModelPath('/models/ppocrv4/dict.txt')
     },
     sizes: {
       detection: '4.6MB',
@@ -70,10 +72,10 @@ export const MODEL_CONFIGS: ModelConfig[] = [
     type: 'server',
     version: 'v2',
     paths: {
-      detection: '/models/ppocrv2/det.onnx',
-      recognition: '/models/ppocrv4/rec.onnx', // Fallback to v4 mobile rec
-      classification: '/models/ppocrv2/cls.onnx',
-      dictionary: '/models/ppocrv2/dict.txt'
+      detection: getModelPath('/models/ppocrv2-server/det.onnx'),
+      recognition: getModelPath('/models/ppocrv4/rec.onnx'), // Fallback to v4 mobile rec
+      classification: getModelPath('/models/ppocrv2-server/cls.onnx'),
+      dictionary: getModelPath('/models/ppocrv2-server/dict.txt')
     },
     sizes: {
       detection: '47MB',
@@ -91,10 +93,10 @@ export const MODEL_CONFIGS: ModelConfig[] = [
     type: 'mobile',
     version: 'v5/v4',
     paths: {
-      detection: '/models/en-mobile/det.onnx',
-      recognition: '/models/en-mobile/rec.onnx',
-      classification: '/models/en-mobile/cls.onnx',
-      dictionary: '/models/en-mobile/dict.txt'
+      detection: getModelPath('/models/en-mobile/det.onnx'),
+      recognition: getModelPath('/models/en-mobile/rec.onnx'),
+      classification: getModelPath('/models/en-mobile/cls.onnx'),
+      dictionary: getModelPath('/models/en-mobile/dict.txt')
     },
     sizes: {
       detection: '4.7MB',
