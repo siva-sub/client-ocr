@@ -9,8 +9,13 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: 'auto',
+      scope: '/client-ocr/',
+      base: '/client-ocr/',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
+        scope: '/client-ocr/',
+        start_url: '/client-ocr/',
         name: 'Client OCR',
         short_name: 'ClientOCR',
         description: 'Client-side OCR processing with ONNX Runtime',

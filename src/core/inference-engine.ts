@@ -69,14 +69,16 @@ export class InferenceEngine {
       // Apply deskew if enabled
       let deskewAngle = 0
       if (enableDeskew) {
+        // Clone the buffer to avoid detached ArrayBuffer issues
+        const clonedBuffer = imageData.data.buffer.slice(0)
         const deskewResult = await this.sendToWorker(this.deskewWorker!, {
           type: 'PROCESS',
           data: {
-            imageData: imageData.data.buffer,
+            imageData: clonedBuffer,
             width: imageData.width,
             height: imageData.height
           }
-        }, [imageData.data.buffer])
+        }, [clonedBuffer])
         
         if (deskewResult.angle) {
           deskewAngle = deskewResult.angle

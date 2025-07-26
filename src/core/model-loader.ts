@@ -1,10 +1,20 @@
 import * as ort from 'onnxruntime-web'
-import { getAssetPath } from './config'
+import { getBasePath } from './config'
 
 // Configure ONNX Runtime for the correct environment
 const configureOnnxRuntime = () => {
   // Set the WASM paths to use the correct base URL
-  ort.env.wasm.wasmPaths = getAssetPath('/') + '/'
+  const basePath = getBasePath()
+  if (basePath) {
+    // For GitHub Pages, we need to set the full URL
+    ort.env.wasm.wasmPaths = window.location.origin + basePath + '/'
+  }
+  
+  // Disable SIMD if causing issues
+  ort.env.wasm.simd = true
+  
+  // Set number of threads
+  ort.env.wasm.numThreads = Math.min(4, navigator.hardwareConcurrency || 4)
 }
 
 // Initialize ONNX Runtime configuration
