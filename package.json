@@ -1,0 +1,94 @@
+{
+  "name": "client-side-ocr",
+  "private": false,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "High-performance client-side OCR with ONNX Runtime and PaddleOCR models. Process text from images entirely in the browser.",
+  "author": {
+    "name": "Sivasubramanian Ramanathan",
+    "email": "sivasub987@gmail.com",
+    "url": "https://sivasub.com"
+  },
+  "homepage": "https://siva-sub.github.io/client-ocr/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siva-sub/client-ocr.git"
+  },
+  "bugs": {
+    "url": "https://github.com/siva-sub/client-ocr/issues"
+  },
+  "keywords": [
+    "ocr",
+    "onnx",
+    "onnxruntime",
+    "paddleocr",
+    "client-side",
+    "browser",
+    "text-recognition",
+    "text-detection",
+    "image-processing",
+    "pwa",
+    "tesseract",
+    "typescript",
+    "react"
+  ],
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.mjs",
+      "require": "./dist/react/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "build:lib": "tsc -b && vite build --mode lib",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "prepublishOnly": "npm run build:lib",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mantine/code-highlight": "^8.2.1",
+    "@mantine/core": "^8.2.1",
+    "@mantine/dropzone": "^8.2.1",
+    "@mantine/hooks": "^8.2.1",
+    "@mantine/notifications": "^8.2.1",
+    "@tabler/icons-react": "^3.34.1",
+    "onnxruntime-web": "^1.22.0",
+    "pdfjs-dist": "^5.3.93",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tesseract.js": "^6.0.1",
+    "vite-plugin-pwa": "^1.0.2",
+    "workbox-window": "^7.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.30.1",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "eslint": "^9.30.1",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.3.0",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.35.1",
+    "vite": "^7.0.4",
+    "vite-plugin-dts": "^4.5.4"
+  }
+}
