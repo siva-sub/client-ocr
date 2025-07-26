@@ -64,6 +64,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:lib": "tsc -b && vite build --config vite.config.lib.ts",
+    "build:gh-pages": "tsc -b && vite build --config vite.config.gh-pages.ts",
     "lint": "eslint .",
     "preview": "vite preview",
     "prepublishOnly": "npm run build:lib",

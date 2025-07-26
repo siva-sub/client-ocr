@@ -10,7 +10,7 @@
 [![Demo](https://img.shields.io/badge/demo-live-brightgreen.svg)](https://siva-sub.github.io/client-ocr/)
 [![GitHub stars](https://img.shields.io/github/stars/siva-sub/client-ocr?style=social)](https://github.com/siva-sub/client-ocr)
 
-[**Live Demo**](https://siva-sub.github.io/client-ocr/) | [**NPM Package**](https://www.npmjs.com/package/client-side-ocr) | [**Documentation**](./docs/USAGE.md) | [**API Reference**](./docs/API.md)
+[**Live Demo**](https://siva-sub.github.io/client-ocr/) | [**NPM Package**](https://www.npmjs.com/package/client-side-ocr) | [**Documentation**](./documentation/USAGE.md) | [**API Reference**](./documentation/API.md)
 
 </div>
 
@@ -166,15 +166,15 @@ function App() {
 
 ### 📚 Comprehensive Guides
 
-- **[Usage Guide](./docs/USAGE.md)** - Complete usage documentation with examples
-- **[API Reference](./docs/API.md)** - Detailed API documentation
+- **[Usage Guide](./documentation/USAGE.md)** - Complete usage documentation with examples
+- **[API Reference](./documentation/API.md)** - Detailed API documentation
 - **[Model Documentation](./MODELS.md)** - Information about available OCR models
 
 ### 📸 Screenshots
 
 | Home Page | Model Selection | Settings |
 |-----------|-----------------|----------|
-| ![Home](./docs/screenshots/home-page.png) | ![Models](./docs/screenshots/model-selection.png) | ![Settings](./docs/screenshots/settings-page.png) |
+| ![Home](./documentation/screenshots/home-page.png) | ![Models](./documentation/screenshots/model-selection.png) | ![Settings](./documentation/screenshots/settings-page.png) |
 
 ## API Overview
 
