@@ -50,13 +50,20 @@
   },
   "files": [
     "dist",
+    "!dist/models",
+    "!dist/*.html",
+    "!dist/*.webmanifest",
+    "!dist/sw.js",
+    "!dist/workbox-*.js",
+    "!dist/registerSW.js",
+    "!dist/vite.svg",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:lib": "tsc -b && vite build --mode lib",
+    "build:lib": "tsc -b && vite build --config vite.config.lib.ts",
     "lint": "eslint .",
     "preview": "vite preview",
     "prepublishOnly": "npm run build:lib",

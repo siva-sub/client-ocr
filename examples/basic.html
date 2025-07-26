@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client-Side OCR - Basic Example</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 2rem;
+        }
+        .upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .upload-area:hover {
+            border-color: #007bff;
+            background: #f0f8ff;
+        }
+        .upload-area.dragover {
+            border-color: #28a745;
+            background: #e8f5e9;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .preview {
+            max-width: 100%;
+            margin: 1rem 0;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .status.loading {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        .status.success {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+        .status.error {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+        .result {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #f5f5f5;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .metric {
+            background: #f0f0f0;
+            padding: 1rem;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 0.5rem;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Client-Side OCR - Basic Example</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <p>📷 Click to select an image or drag & drop here</p>
+            <p style="font-size: 14px; color: #666;">Supports JPEG, PNG, WebP</p>
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+
+        <div id="status"></div>
+        
+        <img id="preview" class="preview" style="display: none;">
+        
+        <div id="controls" style="display: none; margin: 1rem 0;">
+            <button id="processBtn">Process Image</button>
+            <button id="copyBtn" style="display: none;">Copy Text</button>
+            <button id="downloadBtn" style="display: none;">Download JSON</button>
+        </div>
+
+        <div id="metrics" class="metrics" style="display: none;"></div>
+        
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script type="module">
+        import { createOCREngine } from 'https://unpkg.com/client-side-ocr@latest/dist/index.mjs';
+        
+        let ocr = null;
+        let currentFile = null;
+        let lastResult = null;
+        
+        // UI Elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const preview = document.getElementById('preview');
+        const status = document.getElementById('status');
+        const result = document.getElementById('result');
+        const metrics = document.getElementById('metrics');
+        const controls = document.getElementById('controls');
+        const processBtn = document.getElementById('processBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        
+        // Initialize OCR engine
+        async function initializeOCR() {
+            if (!ocr) {
+                showStatus('Initializing OCR engine...', 'loading');
+                try {
+                    ocr = createOCREngine();
+                    await ocr.initialize();
+                    showStatus('OCR engine ready', 'success');
+                    setTimeout(() => status.style.display = 'none', 2000);
+                } catch (error) {
+                    showStatus('Failed to initialize OCR: ' + error.message, 'error');
+                    console.error(error);
+                }
+            }
+        }
+        
+        // File handling
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        });
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                handleFile(file);
+            }
+        });
+        
+        // Handle file selection
+        function handleFile(file) {
+            currentFile = file;
+            
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                controls.style.display = 'block';
+                result.style.display = 'none';
+                metrics.style.display = 'none';
+                copyBtn.style.display = 'none';
+                downloadBtn.style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Process image
+        processBtn.addEventListener('click', async () => {
+            if (!currentFile) return;
+            
+            processBtn.disabled = true;
+            showStatus('Processing image...', 'loading');
+            
+            try {
+                // Initialize OCR if needed
+                if (!ocr) {
+                    await initializeOCR();
+                }
+                
+                // Process the image
+                const startTime = performance.now();
+                const ocrResult = await ocr.processImage(currentFile);
+                const endTime = performance.now();
+                
+                lastResult = ocrResult;
+                
+                // Show results
+                result.textContent = ocrResult.text || 'No text detected';
+                result.style.display = 'block';
+                
+                // Show metrics
+                showMetrics({
+                    'Processing Time': `${Math.round(endTime - startTime)}ms`,
+                    'Confidence': `${(ocrResult.confidence * 100).toFixed(1)}%`,
+                    'Lines Detected': ocrResult.lines.length,
+                    'Method': ocrResult.method.toUpperCase()
+                });
+                
+                showStatus('Processing complete!', 'success');
+                copyBtn.style.display = 'inline-block';
+                downloadBtn.style.display = 'inline-block';
+                
+            } catch (error) {
+                showStatus('Processing failed: ' + error.message, 'error');
+                console.error(error);
+            } finally {
+                processBtn.disabled = false;
+            }
+        });
+        
+        // Copy text
+        copyBtn.addEventListener('click', () => {
+            if (lastResult) {
+                navigator.clipboard.writeText(lastResult.text).then(() => {
+                    const originalText = copyBtn.textContent;
+                    copyBtn.textContent = '✓ Copied!';
+                    setTimeout(() => {
+                        copyBtn.textContent = originalText;
+                    }, 2000);
+                });
+            }
+        });
+        
+        // Download JSON
+        downloadBtn.addEventListener('click', () => {
+            if (lastResult) {
+                const data = JSON.stringify(lastResult, null, 2);
+                const blob = new Blob([data], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ocr-result-${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        });
+        
+        // Helper functions
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+        }
+        
+        function showMetrics(data) {
+            metrics.innerHTML = Object.entries(data).map(([label, value]) => `
+                <div class="metric">
+                    <div class="metric-value">${value}</div>
+                    <div class="metric-label">${label}</div>
+                </div>
+            `).join('');
+            metrics.style.display = 'grid';
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', () => {
+            // Pre-initialize OCR engine
+            initializeOCR();
+        });
+    </script>
+</body>
+</html>

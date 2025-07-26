@@ -85,113 +85,82 @@ npm run dev
 npm run build
 ```
 
-## Usage
-
-### Quick Start - Web App
-
-1. Visit the [live demo](https://siva-sub.github.io/client-ocr/) or run locally
-2. Click or drag an image to upload
-3. Select model type (mobile for speed, server for accuracy)
-4. Wait for the OCR processing to complete
-5. View extracted text and performance metrics
-6. Copy text or export results as JSON
+## Quick Start
 
 ### As a Library
 
 ```typescript
-import { InferenceEngine } from 'client-side-ocr';
+import { createOCREngine } from 'client-side-ocr';
 
 // Initialize the OCR engine
-const ocr = new InferenceEngine();
-
-// Load models
-await ocr.initialize({
-  detection: '/models/ch_PP-OCRv4_det.onnx',
-  recognition: '/models/ch_PP-OCRv4_rec.onnx',
-  classification: '/models/ch_ppocr_mobile_v2.0_cls.onnx',
-  dictionary: '/models/ppocr_keys_v1.txt'
-});
+const ocr = createOCREngine();
+await ocr.initialize();
 
 // Process an image
-const imageElement = document.getElementById('myImage') as HTMLImageElement;
-const result = await ocr.processImage(imageElement, {
-  enableDeskew: true,
-  enableFallback: true
-});
-
-console.log(result.fullText);
-console.log(result.regions); // Individual text regions with coordinates
+const result = await ocr.processImage(imageFile);
+console.log(result.text);
 ```
 
 ### React Component
 
 ```tsx
-import { OCRProcessor } from 'client-side-ocr/react';
+import { OCRInterface } from 'client-side-ocr/react';
 
-function MyApp() {
-  return (
-    <OCRProcessor
-      onResult={(result) => {
-        console.log('OCR Result:', result.fullText);
-      }}
-      modelConfig={{
-        type: 'mobile', // or 'server'
-        version: 'v4'
-      }}
-    />
-  );
+function App() {
+  return <OCRInterface />;
 }
 ```
 
-## API Reference
+### Via CDN
 
-### InferenceEngine
+```html
+<script type="module">
+  import { createOCREngine } from 'https://unpkg.com/client-side-ocr@latest/dist/index.mjs';
+  
+  const ocr = createOCREngine();
+  await ocr.initialize();
+</script>
+```
 
-The main OCR processing engine.
+## Documentation
+
+### 📚 Comprehensive Guides
+
+- **[Usage Guide](./docs/USAGE.md)** - Complete usage documentation with examples
+- **[API Reference](./docs/API.md)** - Detailed API documentation
+- **[Model Documentation](./MODELS.md)** - Information about available OCR models
+
+### 📸 Screenshots
+
+| Home Page | Model Selection | Settings |
+|-----------|-----------------|----------|
+| ![Home](./docs/screenshots/home-page.png) | ![Models](./docs/screenshots/model-selection.png) | ![Settings](./docs/screenshots/settings-page.png) |
+
+## API Overview
 
 ```typescript
-class InferenceEngine {
-  // Initialize with model paths
-  initialize(modelPaths: ModelPaths, modelId?: string): Promise<void>
-  
-  // Process an image
-  processImage(
-    image: HTMLImageElement | HTMLCanvasElement | File,
-    options?: ProcessingOptions
-  ): Promise<OCRResult>
-  
-  // Clean up resources
-  terminate(): Promise<void>
-}
+// Create OCR engine
+const ocr = createOCREngine();
+
+// Initialize with specific model
+await ocr.initialize('ppocr-v5'); // or 'ppocr-v4', 'en-mobile', 'ppocr-v2-server'
+
+// Process image with options
+const result = await ocr.processImage(file, {
+  enableDeskew: true,
+  enableFallback: true,
+  confidenceThreshold: 0.7,
+  language: 'eng'
+});
+
+// Access results
+console.log(result.text);           // Extracted text
+console.log(result.confidence);     // Confidence score
+console.log(result.lines);          // Individual text lines
+console.log(result.processingTime); // Processing time in ms
 ```
 
-### Types
-
-```typescript
-interface OCRResult {
-  regions: TextRegion[]
-  fullText: string
-  processingTime: number
-  method: 'onnx' | 'tesseract'
-  metadata: {
-    imageWidth: number
-    imageHeight: number
-    deskewAngle: number
-  }
-}
-
-interface TextRegion {
-  text: string
-  confidence: number
-  box: BoundingBox
-}
-
-interface ProcessingOptions {
-  enableDeskew?: boolean      // Auto-correct tilted text
-  enableFallback?: boolean    // Use Tesseract.js as fallback
-  progressCallback?: (progress: number) => void
-}
-```
+For detailed API documentation, see [API Reference](./docs/API.md).
 
 ## Model Support
 

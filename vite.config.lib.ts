@@ -38,7 +38,9 @@ export default defineConfig({
   plugins: [
     dts({
       insertTypesEntry: true,
-      rollupTypes: true
+      rollupTypes: false,
+      include: ['src/**/*'],
+      exclude: ['src/**/*.test.ts', 'src/**/*.spec.ts', 'vite.config.ts', 'vite.config.lib.ts']
     })
   ]
 })
