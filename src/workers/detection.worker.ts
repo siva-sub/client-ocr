@@ -40,8 +40,11 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
         // Preprocess image for detection model
         const inputTensor = preprocessImage(imageData, width, height, resizedWidth, resizedHeight)
         
-        // Run inference
-        const results = await session.run({ 'x': inputTensor })
+        // Run inference - dynamically use the input name from the model
+        const inputName = session.inputNames[0] || 'x'
+        const feeds: Record<string, ort.Tensor> = {}
+        feeds[inputName] = inputTensor
+        const results = await session.run(feeds)
         
         // Extract bounding boxes from results using DB postprocessing
         const boxes = postprocessDetection(results, resizedWidth, resizedHeight, ratioW, ratioH)

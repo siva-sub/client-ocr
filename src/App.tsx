@@ -5,14 +5,8 @@ import '@mantine/notifications/styles.css'
 import '@mantine/dropzone/styles.css'
 import '@mantine/code-highlight/styles.css'
 import { OCRInterface } from './ui/OCRInterface'
-import { useEffect } from 'react'
-import { registerServiceWorker } from './pwa'
 
 function App() {
-  useEffect(() => {
-    // Register service worker for PWA
-    registerServiceWorker()
-  }, [])
 
   return (
     <MantineProvider defaultColorScheme="light">

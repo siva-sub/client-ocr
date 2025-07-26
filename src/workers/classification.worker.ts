@@ -35,8 +35,11 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
           // Preprocess image for classification
           const inputTensor = preprocessForClassification(region.imageData, region.width, region.height)
           
-          // Run inference
-          const output = await session.run({ input: inputTensor })
+          // Run inference - dynamically use the input name from the model
+          const inputName = session.inputNames[0] || 'input'
+          const feeds: Record<string, ort.Tensor> = {}
+          feeds[inputName] = inputTensor
+          const output = await session.run(feeds)
           
           // Get classification result
           const { label, confidence } = postprocessClassification(output)
