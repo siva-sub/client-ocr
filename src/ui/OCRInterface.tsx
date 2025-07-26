@@ -114,12 +114,87 @@ export function OCRInterface() {
     }
   }
 
-  const processPdf = async (_file: File) => {
-    notifications.show({
-      title: 'PDF Processing',
-      message: 'PDF processing will be implemented in the next iteration',
-      color: 'blue'
-    })
+  const processPdf = async (file: File) => {
+    setIsProcessing(true)
+    setProgress(0)
+    
+    try {
+      // Initialize engine if needed
+      if (!isInitialized) {
+        await initializeEngine()
+      }
+      
+      setProgress(10)
+      
+      notifications.show({
+        title: 'Processing PDF',
+        message: 'Converting PDF pages to images...',
+        color: 'blue'
+      })
+      
+      // Load PDF.js
+      const pdfjsLib = await import('pdfjs-dist')
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+      
+      // Load PDF
+      const arrayBuffer = await file.arrayBuffer()
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+      
+      const totalPages = pdf.numPages
+      const results: string[] = []
+      
+      // Process each page
+      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        const page = await pdf.getPage(pageNum)
+        
+        // Render page to canvas
+        const scale = 2.0 // Higher scale for better OCR
+        const viewport = page.getViewport({ scale })
+        
+        const canvas = document.createElement('canvas')
+        canvas.width = viewport.width
+        canvas.height = viewport.height
+        
+        const context = canvas.getContext('2d')!
+        await page.render({
+          canvasContext: context,
+          viewport: viewport
+        }).promise
+        
+        // Process canvas directly with OCR
+        const pageResult = await inferenceEngine.processImage(canvas, processingOptions)
+        results.push(`Page ${pageNum}:\n${pageResult.fullText}`)
+        
+        setProgress(10 + (pageNum / totalPages) * 80)
+      }
+      
+      // Combine results
+      const combinedText = results.join('\n\n')
+      
+      setResult({
+        fullText: combinedText,
+        regions: [],
+        processingTime: performance.now(),
+        method: 'onnx'
+      })
+      
+      notifications.show({
+        title: 'PDF Processing Complete',
+        message: `Successfully processed ${totalPages} pages`,
+        color: 'green'
+      })
+      
+    } catch (error) {
+      console.error('PDF processing error:', error)
+      notifications.show({
+        title: 'PDF Processing Failed',
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        color: 'red'
+      })
+    } finally {
+      setIsProcessing(false)
+      setProgress(0)
+    }
   }
 
   return (

@@ -1,10 +1,18 @@
 export class DeskewService {
-  private canvas: HTMLCanvasElement
-  private ctx: CanvasRenderingContext2D
+  private canvas: HTMLCanvasElement | OffscreenCanvas
+  private ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
   
   constructor() {
-    this.canvas = document.createElement('canvas')
-    this.ctx = this.canvas.getContext('2d')!
+    // Use OffscreenCanvas in workers, regular canvas in main thread
+    if (typeof OffscreenCanvas !== 'undefined') {
+      this.canvas = new OffscreenCanvas(1, 1)
+      this.ctx = this.canvas.getContext('2d')!
+    } else if (typeof document !== 'undefined') {
+      this.canvas = document.createElement('canvas')
+      this.ctx = this.canvas.getContext('2d')!
+    } else {
+      throw new Error('Neither OffscreenCanvas nor document is available')
+    }
   }
   
   async deskewImage(imageData: ImageData | HTMLImageElement): Promise<{ imageData: ImageData; angle: number }> {
@@ -225,10 +233,18 @@ export class DeskewService {
     this.canvas.height = newHeight
     
     // Create temporary canvas for source image
-    const tempCanvas = document.createElement('canvas')
-    const tempCtx = tempCanvas.getContext('2d')!
-    tempCanvas.width = width
-    tempCanvas.height = height
+    let tempCanvas: HTMLCanvasElement | OffscreenCanvas
+    let tempCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
+    
+    if (typeof OffscreenCanvas !== 'undefined') {
+      tempCanvas = new OffscreenCanvas(width, height)
+      tempCtx = tempCanvas.getContext('2d')!
+    } else {
+      tempCanvas = document.createElement('canvas')
+      tempCanvas.width = width
+      tempCanvas.height = height
+      tempCtx = tempCanvas.getContext('2d')!
+    }
     tempCtx.putImageData(imageData, 0, 0)
     
     // Perform rotation
@@ -237,7 +253,7 @@ export class DeskewService {
     this.ctx.fillRect(0, 0, newWidth, newHeight)
     this.ctx.translate(newWidth / 2, newHeight / 2)
     this.ctx.rotate(rad)
-    this.ctx.drawImage(tempCanvas, -width / 2, -height / 2)
+    this.ctx.drawImage(tempCanvas as any, -width / 2, -height / 2)
     this.ctx.restore()
     
     return this.ctx.getImageData(0, 0, newWidth, newHeight)
