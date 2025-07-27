@@ -43,6 +43,14 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
             }
             
             console.log(`Loaded dictionary with ${charDict.length} characters (including blank)`)
+            
+            // Check if this is a multilingual dictionary (very large)
+            // and if we need special handling
+            if (charDict.length > 10000) {
+              console.log('Detected multilingual dictionary')
+              // Store a flag for multilingual handling
+              ;(self as any).isMultilingual = true
+            }
           } catch (error) {
             console.warn('Failed to load dictionary, using default:', error)
             charDict = generateDefaultCharDict()
@@ -291,9 +299,18 @@ function decodeOutput(output: ort.InferenceSession.OnnxValueMapType): { text: st
   
   for (let i = 0; i < decoded.length; i++) {
     const charIdx = decoded[i]
+    
+    // For multilingual dictionaries, we need to apply an offset
+    // This is because the model might be outputting 1-based indices
+    let dictIdx = charIdx
+    if ((self as any).isMultilingual) {
+      // Multilingual models seem to use 1-based indexing
+      dictIdx = charIdx - 1
+    }
+    
     // Direct index lookup - the dictionary already includes blank at position 0
-    if (charIdx >= 0 && charIdx < charDict.length) {
-      text += charDict[charIdx]
+    if (dictIdx >= 0 && dictIdx < charDict.length) {
+      text += charDict[dictIdx]
       // Use softmax probability directly (no need to exp if already softmax)
       totalConfidence += confidences[i]
     }
