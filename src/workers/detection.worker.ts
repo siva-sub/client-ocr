@@ -3,11 +3,12 @@ import type { WorkerMessage, BoundingBox } from '../types/ocr.types'
 
 let session: ort.InferenceSession | null = null
 
-// DB postprocessing parameters
-const DB_THRESH = 0.2  // Lowered from 0.3 for better document text detection
-const DB_BOX_THRESH = 0.4  // Lowered from 0.5 to catch more text regions
-const DB_UNCLIP_RATIO = 1.6  // Slightly increased to capture full text boxes
+// DB postprocessing parameters - Optimized for document text detection
+const DB_THRESH = 0.15  // Further lowered for dense document text detection
+const DB_BOX_THRESH = 0.3  // Lower threshold to capture more text regions in documents
+const DB_UNCLIP_RATIO = 2.0  // Increased to capture full paragraph boxes
 const DB_MIN_SIZE = 3
+const DB_MAX_CANDIDATES = 1000  // Maximum number of text candidates to process
 
 self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
   const { type, data } = event.data
@@ -40,7 +41,12 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
       }
       
       try {
-        const { imageData, width, height } = data
+        const { imageData, width, height, isDocument = false } = data
+        
+        // Use document-specific parameters if detected
+        if (isDocument) {
+          console.log('Using document-optimized detection parameters')
+        }
         
         // Calculate resize dimensions (must be multiple of 32)
         const { resizedWidth, resizedHeight, ratioW, ratioH } = calculateResizeDimensions(width, height)
@@ -55,7 +61,7 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
         const results = await session.run(feeds)
         
         // Extract bounding boxes from results using DB postprocessing
-        const boxes = postprocessDetection(results, resizedWidth, resizedHeight, ratioW, ratioH)
+        const boxes = postprocessDetection(results, resizedWidth, resizedHeight, ratioW, ratioH, isDocument)
         
         self.postMessage({ type: 'RESULT', data: { boxes } })
       } catch (error) {
@@ -65,18 +71,23 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
   }
 })
 
-function calculateResizeDimensions(width: number, height: number, limitSideLen: number = 960) {
+function calculateResizeDimensions(width: number, height: number, limitSideLen: number = 1280) {
   let resizedWidth = width
   let resizedHeight = height
   
+  // For documents, use higher resolution limit for better text detection
+  // Detect if it's likely a document (portrait orientation with high resolution)
+  const isDocument = height > width && Math.min(width, height) > 1000
+  const effectiveLimit = isDocument ? 1920 : limitSideLen
+  
   // Limit the maximum side length
-  if (Math.max(width, height) > limitSideLen) {
+  if (Math.max(width, height) > effectiveLimit) {
     if (width > height) {
-      resizedWidth = limitSideLen
-      resizedHeight = Math.round(height * limitSideLen / width)
+      resizedWidth = effectiveLimit
+      resizedHeight = Math.round(height * effectiveLimit / width)
     } else {
-      resizedHeight = limitSideLen
-      resizedWidth = Math.round(width * limitSideLen / height)
+      resizedHeight = effectiveLimit
+      resizedWidth = Math.round(width * effectiveLimit / height)
     }
   }
   
@@ -144,7 +155,8 @@ function postprocessDetection(
   _width: number, 
   _height: number,
   ratioW: number,
-  ratioH: number
+  ratioH: number,
+  isDocument: boolean = false
 ): BoundingBox[] {
   // Get output tensor - Try common output names first
   const outputName = Object.keys(results)[0]
@@ -169,6 +181,18 @@ function postprocessDetection(
   const probMap = output.data as Float32Array
   const [, , mapHeight, mapWidth] = output.dims as number[]
   
+  // Use more aggressive thresholds for documents
+  const effectiveThresh = isDocument ? Math.min(DB_THRESH, 0.1) : DB_THRESH
+  const effectiveBoxThresh = isDocument ? Math.min(DB_BOX_THRESH, 0.2) : DB_BOX_THRESH
+  const effectiveUnclipRatio = isDocument ? Math.max(DB_UNCLIP_RATIO, 2.5) : DB_UNCLIP_RATIO
+  
+  console.log('Detection parameters:', {
+    isDocument,
+    threshold: effectiveThresh,
+    boxThreshold: effectiveBoxThresh,
+    unclipRatio: effectiveUnclipRatio
+  })
+  
   // Apply threshold to get binary map
   const bitmap = new Uint8Array(mapHeight * mapWidth)
   let pixelsAboveThreshold = 0
@@ -180,7 +204,7 @@ function postprocessDetection(
     maxProb = Math.max(maxProb, prob)
     minProb = Math.min(minProb, prob)
     
-    if (prob > DB_THRESH) {
+    if (prob > effectiveThresh) {
       bitmap[i] = 255
       pixelsAboveThreshold++
     } else {
@@ -191,14 +215,14 @@ function postprocessDetection(
   console.log('Detection probability stats:', {
     min: minProb,
     max: maxProb,
-    threshold: DB_THRESH,
+    threshold: effectiveThresh,
     pixelsAboveThreshold,
     totalPixels: probMap.length,
     percentageAbove: (pixelsAboveThreshold / probMap.length * 100).toFixed(2) + '%'
   })
   
   // Find contours using a simple connected components approach
-  const contours = findContours(bitmap, mapWidth, mapHeight)
+  const contours = findContours(bitmap, mapWidth, mapHeight, isDocument)
   console.log(`Found ${contours.length} contours`)
   
   // Convert contours to bounding boxes
@@ -220,14 +244,14 @@ function postprocessDetection(
     
     // Calculate box score
     const score = boxScoreFast(probMap, rect, mapWidth, mapHeight)
-    if (score < DB_BOX_THRESH) {
+    if (score < effectiveBoxThresh) {
       rejectionReasons.low_score++
-      console.log(`Box rejected: score ${score.toFixed(3)} < threshold ${DB_BOX_THRESH}`)
+      console.log(`Box rejected: score ${score.toFixed(3)} < threshold ${effectiveBoxThresh}`)
       continue
     }
     
     // Unclip the box (expand it)
-    const expandedBox = unclipBox(rect, DB_UNCLIP_RATIO)
+    const expandedBox = unclipBox(rect, effectiveUnclipRatio)
     if (!expandedBox) {
       rejectionReasons.no_expanded_box++
       continue
@@ -272,29 +296,71 @@ function postprocessDetection(
   return boxes
 }
 
-// Simple contour finding algorithm
+// Improved contour finding algorithm for document text
 function findContours(
   bitmap: Uint8Array, 
   width: number, 
-  height: number
+  height: number,
+  isDocument: boolean = false
 ): Array<Array<{x: number, y: number}>> {
   const visited = new Uint8Array(width * height)
   const contours: Array<Array<{x: number, y: number}>> = []
+  
+  // Apply morphological operations to connect nearby text regions
+  // Use larger kernel for documents to connect text lines in paragraphs
+  const kernelSize = isDocument ? 3 : 2
+  const dilatedBitmap = morphologicalDilate(bitmap, width, height, kernelSize)
   
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = y * width + x
       
-      if (bitmap[idx] === 255 && !visited[idx]) {
-        const contour = traceContour(bitmap, visited, x, y, width, height)
-        if (contour.length > 10) { // Minimum contour size
+      if (dilatedBitmap[idx] === 255 && !visited[idx]) {
+        const contour = traceContour(dilatedBitmap, visited, x, y, width, height)
+        if (contour.length > 5) { // Lowered minimum contour size for small text
           contours.push(contour)
         }
       }
     }
   }
   
+  // Limit number of contours to prevent excessive processing
+  if (contours.length > DB_MAX_CANDIDATES) {
+    // Sort by size and keep the largest ones
+    contours.sort((a, b) => b.length - a.length)
+    return contours.slice(0, DB_MAX_CANDIDATES)
+  }
+  
   return contours
+}
+
+// Morphological dilation to connect nearby text regions
+function morphologicalDilate(
+  bitmap: Uint8Array,
+  width: number,
+  height: number,
+  kernelSize: number
+): Uint8Array {
+  const result = new Uint8Array(bitmap)
+  const halfKernel = Math.floor(kernelSize / 2)
+  
+  for (let y = halfKernel; y < height - halfKernel; y++) {
+    for (let x = halfKernel; x < width - halfKernel; x++) {
+      let maxVal = 0
+      
+      // Check kernel area
+      for (let ky = -halfKernel; ky <= halfKernel; ky++) {
+        for (let kx = -halfKernel; kx <= halfKernel; kx++) {
+          const idx = (y + ky) * width + (x + kx)
+          maxVal = Math.max(maxVal, bitmap[idx])
+        }
+      }
+      
+      result[y * width + x] = maxVal
+    }
+  }
+  
+  return result
 }
 
 // Trace a single contour using flood fill

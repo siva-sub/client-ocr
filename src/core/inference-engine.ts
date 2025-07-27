@@ -76,6 +76,9 @@ export class InferenceEngine {
       const ctx = canvas.getContext('2d')!
       let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
       
+      // Detect if this is likely a document image
+      const isDocument = this.detectDocumentImage(imageData)
+      
       // Apply deskew if enabled
       let deskewAngle = 0
       if (enableDeskew) {
@@ -102,12 +105,14 @@ export class InferenceEngine {
       
       // Run detection
       console.log('Running text detection on image:', imageData.width, 'x', imageData.height)
+      console.log('Document mode:', isDocument)
       const detectionResult = await this.sendToWorker(this.detectionWorker!, {
         type: 'PROCESS',
         data: {
           imageData: imageData.data,
           width: imageData.width,
-          height: imageData.height
+          height: imageData.height,
+          isDocument
         }
       })
       
@@ -349,6 +354,40 @@ export class InferenceEngine {
     }
   }
   
+  
+  private detectDocumentImage(imageData: ImageData): boolean {
+    const { width, height, data } = imageData
+    
+    // Check aspect ratio (documents are usually portrait)
+    const aspectRatio = height / width
+    const isPortrait = aspectRatio > 1.2
+    
+    // Check resolution (documents are usually high-res)
+    const isHighRes = Math.min(width, height) > 1000
+    
+    // Check color distribution (documents usually have high contrast)
+    let whitePixels = 0
+    let darkPixels = 0
+    const sampleRate = 10 // Sample every 10th pixel for performance
+    
+    for (let i = 0; i < data.length; i += 4 * sampleRate) {
+      const r = data[i]
+      const g = data[i + 1]
+      const b = data[i + 2]
+      const brightness = (r + g + b) / 3
+      
+      if (brightness > 200) whitePixels++
+      if (brightness < 100) darkPixels++
+    }
+    
+    const totalSampled = data.length / (4 * sampleRate)
+    const whiteRatio = whitePixels / totalSampled
+    const darkRatio = darkPixels / totalSampled
+    const hasHighContrast = whiteRatio > 0.3 && darkRatio > 0.1
+    
+    // It's likely a document if it's portrait, high-res, and has high contrast
+    return isPortrait && isHighRes && hasHighContrast
+  }
   
   private sortBoxesByReadingOrder(boxes: BoundingBox[]): BoundingBox[] {
     // Sort boxes by reading order: top to bottom, then left to right
