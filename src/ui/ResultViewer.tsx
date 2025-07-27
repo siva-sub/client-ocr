@@ -12,7 +12,7 @@ interface ResultViewerProps {
 export function ResultViewer({ result, modelId }: ResultViewerProps) {
   const modelConfig = modelId ? getModelConfig(modelId) : null
   const structuredData = {
-    regions: result.regions.map(r => ({
+    regions: result.regions?.map(r => ({
       text: r.text,
       confidence: Math.round(r.confidence * 100) + '%',
       position: {
@@ -21,7 +21,7 @@ export function ResultViewer({ result, modelId }: ResultViewerProps) {
         width: Math.round(r.box.topRight.x - r.box.topLeft.x),
         height: Math.round(r.box.bottomLeft.y - r.box.topLeft.y)
       }
-    })),
+    })) || [],
     metadata: result.metadata
   }
 
@@ -42,7 +42,7 @@ export function ResultViewer({ result, modelId }: ResultViewerProps) {
               {result.method.toUpperCase()}
             </Badge>
             <Badge variant="light">
-              {result.regions.length} regions
+              {result.regions?.length || 0} regions
             </Badge>
           </Group>
         </Group>

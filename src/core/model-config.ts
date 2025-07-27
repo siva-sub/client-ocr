@@ -45,6 +45,27 @@ export const MODEL_CONFIGS: ModelConfig[] = [
     languages: ['en', 'zh']
   },
   {
+    id: 'ppocrv5-server',
+    name: 'PaddleOCR v5 Server Multilingual',
+    description: 'High accuracy server model with multilingual support (Chinese, English, Korean, Japanese, etc.)',
+    type: 'server',
+    version: 'v5',
+    paths: {
+      detection: getModelPath('/models/ppocrv5-server/det/det.onnx'),
+      recognition: getModelPath('/models/ppocrv5-server/rec/rec.onnx'),
+      classification: getModelPath('/models/ppocrv5-server/cls/cls.onnx'),
+      dictionary: getModelPath('/models/ppocrv5-server/ppocrv5_dict.txt')
+    },
+    sizes: {
+      detection: '4.6MB',
+      recognition: '16MB',
+      classification: '570KB'
+    },
+    accuracy: 'very-high',
+    speed: 'medium',
+    languages: ['zh', 'en', 'ko', 'ja', 'multilingual']
+  },
+  {
     id: 'ppocrv4-mobile',
     name: 'PaddleOCR v4 Mobile',
     description: 'Stable mobile model - Balanced performance',
@@ -64,6 +85,48 @@ export const MODEL_CONFIGS: ModelConfig[] = [
     accuracy: 'medium',
     speed: 'fast',
     languages: ['en', 'zh']
+  },
+  {
+    id: 'ch-server-v2',
+    name: 'Chinese Server v2.0',
+    description: 'High accuracy server model optimized for Chinese text',
+    type: 'server',
+    version: 'v2',
+    paths: {
+      detection: getModelPath('/models/ch-server-v2/det/det.onnx'),
+      recognition: getModelPath('/models/ppocrv5-server/rec/rec.onnx'), // Use v5 rec with v2 det
+      classification: getModelPath('/models/ch-server-v2/cls/cls.onnx'),
+      dictionary: getModelPath('/models/ch-server-v2/ppocr_keys_v1.txt')
+    },
+    sizes: {
+      detection: '47MB',
+      recognition: '16MB',
+      classification: '570KB'
+    },
+    accuracy: 'very-high',
+    speed: 'slow',
+    languages: ['zh', 'en']
+  },
+  {
+    id: 'en-ppocr-v4',
+    name: 'English Optimized v4',
+    description: 'PPOCRv4 recognition model optimized specifically for English text',
+    type: 'mobile',
+    version: 'v5/v4',
+    paths: {
+      detection: getModelPath('/models/en-ppocr-v4/det.onnx'),
+      recognition: getModelPath('/models/en-ppocr-v4/rec.onnx'),
+      classification: getModelPath('/models/en-ppocr-v4/cls.onnx'),
+      dictionary: getModelPath('/models/en-ppocr-v4/dict.txt')
+    },
+    sizes: {
+      detection: '4.6MB',
+      recognition: '7.4MB',
+      classification: '570KB'
+    },
+    accuracy: 'high',
+    speed: 'very-fast',
+    languages: ['en']
   },
   {
     id: 'ppocrv2-server',

@@ -61,7 +61,7 @@ export function PerformanceMonitor({ result }: PerformanceMonitorProps) {
 
         <Stack gap="xs">
           <Text size="sm" fw={500}>Region Confidence</Text>
-          {result.regions.slice(0, 5).map((region, index) => {
+          {result.regions?.slice(0, 5).map((region, index) => {
             const confidence = Math.round(region.confidence * 100)
             const confidenceColor = confidence > 80 ? 'green' : confidence > 60 ? 'yellow' : 'red'
             
@@ -80,7 +80,7 @@ export function PerformanceMonitor({ result }: PerformanceMonitorProps) {
               </Group>
             )
           })}
-          {result.regions.length > 5 && (
+          {result.regions && result.regions.length > 5 && (
             <Text size="xs" c="dimmed" ta="center">
               ... and {result.regions.length - 5} more regions
             </Text>
