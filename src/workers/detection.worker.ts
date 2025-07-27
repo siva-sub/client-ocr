@@ -188,11 +188,12 @@ function postprocessDetection(
   const effectiveUnclipRatio = isDocument ? 4.0 : DB_UNCLIP_RATIO  // Much larger expansion for full text capture
   const effectiveMinSize = isDocument ? 1 : DB_MIN_SIZE  // Accept tiny text regions in documents
   
-  console.log('Detection parameters:', {
+  console.log('Detection parameters (v1.1.7):', {
     isDocument,
     threshold: effectiveThresh,
     boxThreshold: effectiveBoxThresh,
-    unclipRatio: effectiveUnclipRatio
+    unclipRatio: effectiveUnclipRatio,
+    mergeThreshold: PARAGRAPH_MERGE_THRESHOLD
   })
   
   // Apply threshold to get binary map
