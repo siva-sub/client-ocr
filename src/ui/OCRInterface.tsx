@@ -338,10 +338,13 @@ export function OCRInterface() {
                 <Alert icon={<IconInfoCircle size={16} />} variant="light">
                   <Text size="sm" fw={500} mb={4}>Model Selection Guide</Text>
                   <Text size="sm">
-                    • <strong>Mobile Models</strong>: Fast loading and inference, suitable for most use cases
+                    • <strong>Mobile Models</strong>: Fast loading and inference, suitable for simple text and signs
                   </Text>
                   <Text size="sm">
-                    • <strong>Server Models</strong>: Higher accuracy but larger download size and slower inference
+                    • <strong>Server Models</strong>: Higher accuracy for documents with dense text, forms, and tables
+                  </Text>
+                  <Text size="sm" mt={4} c="blue.6">
+                    💡 For document processing, use <strong>Chinese Server v2.0</strong> or <strong>PaddleOCR v2 Server</strong> models
                   </Text>
                   <Text size="sm" mt={4}>
                     Switching models will require re-initialization.

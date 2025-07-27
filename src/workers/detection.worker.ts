@@ -4,9 +4,9 @@ import type { WorkerMessage, BoundingBox } from '../types/ocr.types'
 let session: ort.InferenceSession | null = null
 
 // DB postprocessing parameters
-const DB_THRESH = 0.3
-const DB_BOX_THRESH = 0.5  // Lower threshold to be more permissive
-const DB_UNCLIP_RATIO = 1.5
+const DB_THRESH = 0.2  // Lowered from 0.3 for better document text detection
+const DB_BOX_THRESH = 0.4  // Lowered from 0.5 to catch more text regions
+const DB_UNCLIP_RATIO = 1.6  // Slightly increased to capture full text boxes
 const DB_MIN_SIZE = 3
 
 self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
