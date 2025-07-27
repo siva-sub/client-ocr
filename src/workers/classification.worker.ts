@@ -9,10 +9,16 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
   switch (type) {
     case 'INIT':
       try {
+        // Try WebGL first for better performance, fall back to WASM
+        const executionProviders = ['webgl', 'wasm']
+        console.log('Initializing classification model:', data.modelPath)
+        
         session = await ort.InferenceSession.create(data.modelPath, {
-          executionProviders: ['wasm'],
+          executionProviders,
           graphOptimizationLevel: 'all'
         })
+        
+        console.log('Classification model initialized successfully')
         self.postMessage({ type: 'RESULT', data: { initialized: true } })
       } catch (error) {
         self.postMessage({ type: 'ERROR', error: (error as Error).message })

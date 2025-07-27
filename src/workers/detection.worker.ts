@@ -5,7 +5,7 @@ let session: ort.InferenceSession | null = null
 
 // DB postprocessing parameters
 const DB_THRESH = 0.3
-const DB_BOX_THRESH = 0.6
+const DB_BOX_THRESH = 0.5  // Lower threshold to be more permissive
 const DB_UNCLIP_RATIO = 1.5
 const DB_MIN_SIZE = 3
 
@@ -15,10 +15,18 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
   switch (type) {
     case 'INIT':
       try {
+        // Try WebGL first for better performance, fall back to WASM
+        const executionProviders = ['webgl', 'wasm']
+        console.log('Initializing detection model:', data.modelPath)
+        
         session = await ort.InferenceSession.create(data.modelPath, {
-          executionProviders: ['wasm'],
+          executionProviders,
           graphOptimizationLevel: 'all'
         })
+        
+        console.log('Detection model initialized successfully')
+        console.log('Input names:', session.inputNames)
+        console.log('Output names:', session.outputNames)
         self.postMessage({ type: 'RESULT', data: { initialized: true } })
       } catch (error) {
         self.postMessage({ type: 'ERROR', error: (error as Error).message })
@@ -138,47 +146,101 @@ function postprocessDetection(
   ratioW: number,
   ratioH: number
 ): BoundingBox[] {
-  // Get output tensor - PaddleOCR DB model outputs a probability map
-  const output = results['sigmoid_0.tmp_0'] || results['save_infer_model/scale_0.tmp_1'] || 
-                 results['output'] || Object.values(results)[0]
+  // Get output tensor - Try common output names first
+  const outputName = Object.keys(results)[0]
+  console.log('Detection output name:', outputName)
+  
+  const output = results[outputName]
+  
+  // Common output names for PaddleOCR detection models:
+  // - 'sigmoid_0.tmp_0' (v2/v3)
+  // - 'save_infer_model/scale_0.tmp_1' (v4/v5)
+  // - 'output' (some exports)
+  // - First output if none match
   
   if (!output) {
-    console.error('No output found in results')
+    console.error('No output found in results. Available outputs:', Object.keys(results))
     return []
   }
+  
+  console.log('Output shape:', output.dims)
+  console.log('Output data length:', (output.data as Float32Array).length)
   
   const probMap = output.data as Float32Array
   const [, , mapHeight, mapWidth] = output.dims as number[]
   
   // Apply threshold to get binary map
   const bitmap = new Uint8Array(mapHeight * mapWidth)
+  let pixelsAboveThreshold = 0
+  let maxProb = 0
+  let minProb = 1
+  
   for (let i = 0; i < probMap.length; i++) {
-    bitmap[i] = probMap[i] > DB_THRESH ? 255 : 0
+    const prob = probMap[i]
+    maxProb = Math.max(maxProb, prob)
+    minProb = Math.min(minProb, prob)
+    
+    if (prob > DB_THRESH) {
+      bitmap[i] = 255
+      pixelsAboveThreshold++
+    } else {
+      bitmap[i] = 0
+    }
   }
+  
+  console.log('Detection probability stats:', {
+    min: minProb,
+    max: maxProb,
+    threshold: DB_THRESH,
+    pixelsAboveThreshold,
+    totalPixels: probMap.length,
+    percentageAbove: (pixelsAboveThreshold / probMap.length * 100).toFixed(2) + '%'
+  })
   
   // Find contours using a simple connected components approach
   const contours = findContours(bitmap, mapWidth, mapHeight)
+  console.log(`Found ${contours.length} contours`)
   
   // Convert contours to bounding boxes
   const boxes: BoundingBox[] = []
+  const rejectionReasons: Record<string, number> = {
+    'no_rect': 0,
+    'low_score': 0,
+    'no_expanded_box': 0,
+    'too_small': 0
+  }
   
   for (const contour of contours) {
     // Calculate bounding rectangle
     const rect = minAreaRect(contour)
-    if (!rect) continue
+    if (!rect) {
+      rejectionReasons.no_rect++
+      continue
+    }
     
     // Calculate box score
     const score = boxScoreFast(probMap, rect, mapWidth, mapHeight)
-    if (score < DB_BOX_THRESH) continue
+    if (score < DB_BOX_THRESH) {
+      rejectionReasons.low_score++
+      console.log(`Box rejected: score ${score.toFixed(3)} < threshold ${DB_BOX_THRESH}`)
+      continue
+    }
     
     // Unclip the box (expand it)
     const expandedBox = unclipBox(rect, DB_UNCLIP_RATIO)
-    if (!expandedBox) continue
+    if (!expandedBox) {
+      rejectionReasons.no_expanded_box++
+      continue
+    }
     
     // Check minimum size
     const boxWidth = Math.abs(expandedBox.topRight.x - expandedBox.topLeft.x)
     const boxHeight = Math.abs(expandedBox.bottomLeft.y - expandedBox.topLeft.y)
-    if (Math.min(boxWidth, boxHeight) < DB_MIN_SIZE) continue
+    if (Math.min(boxWidth, boxHeight) < DB_MIN_SIZE) {
+      rejectionReasons.too_small++
+      console.log(`Box rejected: size ${Math.min(boxWidth, boxHeight).toFixed(1)} < minimum ${DB_MIN_SIZE}`)
+      continue
+    }
     
     // Scale back to original image coordinates
     boxes.push({
@@ -200,6 +262,12 @@ function postprocessDetection(
       }
     })
   }
+  
+  console.log('Box filtering results:', {
+    totalContours: contours.length,
+    acceptedBoxes: boxes.length,
+    rejectionReasons
+  })
   
   return boxes
 }

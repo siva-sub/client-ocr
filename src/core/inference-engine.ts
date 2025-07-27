@@ -15,7 +15,10 @@ export class InferenceEngine {
     this.fallbackSystem = new FallbackSystem()
   }
   
-  async initialize(modelPaths: { detection: string; recognition: string; classification: string; dictionary?: string }, _modelId?: string): Promise<void> {
+  async initialize(modelPaths: { detection: string; recognition: string; classification: string; dictionary?: string }, modelId?: string): Promise<void> {
+    console.log('Initializing InferenceEngine with model paths:', modelPaths)
+    console.log('Model ID:', modelId)
+    
     // Initialize workers
     this.detectionWorker = new Worker(
       new URL('../workers/detection.worker.ts', import.meta.url),
@@ -37,18 +40,25 @@ export class InferenceEngine {
       { type: 'module' }
     )
     
-    // Initialize models in workers
-    await Promise.all([
-      this.sendToWorker(this.detectionWorker, { type: 'INIT', data: { modelPath: modelPaths.detection } }),
-      this.sendToWorker(this.recognitionWorker, { 
-        type: 'INIT', 
-        data: { 
-          modelPath: modelPaths.recognition,
-          dictPath: modelPaths.dictionary || '/models/en_dict.txt'
-        } 
-      }),
-      this.sendToWorker(this.classificationWorker, { type: 'INIT', data: { modelPath: modelPaths.classification } })
-    ])
+    try {
+      // Initialize models in workers
+      await Promise.all([
+        this.sendToWorker(this.detectionWorker, { type: 'INIT', data: { modelPath: modelPaths.detection } }),
+        this.sendToWorker(this.recognitionWorker, { 
+          type: 'INIT', 
+          data: { 
+            modelPath: modelPaths.recognition,
+            dictPath: modelPaths.dictionary || '/models/en_dict.txt'
+          } 
+        }),
+        this.sendToWorker(this.classificationWorker, { type: 'INIT', data: { modelPath: modelPaths.classification } })
+      ])
+      
+      console.log('All ONNX models initialized successfully')
+    } catch (error) {
+      console.error('Failed to initialize ONNX models:', error)
+      throw error
+    }
     
     // Initialize fallback system
     await this.fallbackSystem.initialize()
@@ -91,6 +101,7 @@ export class InferenceEngine {
       }
       
       // Run detection
+      console.log('Running text detection on image:', imageData.width, 'x', imageData.height)
       const detectionResult = await this.sendToWorker(this.detectionWorker!, {
         type: 'PROCESS',
         data: {
@@ -100,9 +111,14 @@ export class InferenceEngine {
         }
       })
       
+      console.log('Detection result:', detectionResult)
+      
       if (!detectionResult.boxes || detectionResult.boxes.length === 0) {
+        console.warn('No text regions detected by ONNX model')
         throw new Error('No text regions detected')
       }
+      
+      console.log(`Detected ${detectionResult.boxes.length} text regions`)
       
       // Sort boxes by reading order (top to bottom, left to right)
       const sortedBoxes = this.sortBoxesByReadingOrder(detectionResult.boxes)
@@ -155,6 +171,10 @@ export class InferenceEngine {
       }
     } catch (error) {
       console.error('ONNX processing failed:', error)
+      console.error('Error details:', {
+        message: (error as Error).message,
+        stack: (error as Error).stack
+      })
       
       if (enableFallback) {
         console.log('Falling back to Tesseract.js')

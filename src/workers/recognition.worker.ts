@@ -10,18 +10,39 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
   switch (type) {
     case 'INIT':
       try {
+        // Try WebGL first for better performance, fall back to WASM
+        const executionProviders = ['webgl', 'wasm']
+        console.log('Initializing recognition model:', data.modelPath)
+        
         session = await ort.InferenceSession.create(data.modelPath, {
-          executionProviders: ['wasm'],
+          executionProviders,
           graphOptimizationLevel: 'all'
         })
+        
+        console.log('Recognition model initialized successfully')
+        console.log('Input names:', session.inputNames)
+        console.log('Output names:', session.outputNames)
         
         // Load character dictionary from file if provided
         if (data.dictPath) {
           try {
             const response = await fetch(data.dictPath)
             const text = await response.text()
-            // PaddleOCR dictionary already includes blank token at index 0
-            charDict = text.trim().split('\n')
+            // PaddleOCR dictionary format:
+            // Line 1: blank token (empty line)
+            // Line 2+: actual characters
+            const lines = text.split('\n').filter(line => line !== undefined)
+            
+            // Ensure we have the blank token at index 0
+            if (lines.length > 0 && lines[0] === '') {
+              // Dictionary already has blank token, use as-is
+              charDict = lines
+            } else {
+              // Add blank token if missing
+              charDict = ['', ...lines.filter(line => line.trim() !== '')]
+            }
+            
+            console.log(`Loaded dictionary with ${charDict.length} characters (including blank)`)
           } catch (error) {
             console.warn('Failed to load dictionary, using default:', error)
             charDict = generateDefaultCharDict()
@@ -198,11 +219,16 @@ function preprocessForRecognition(
 }
 
 function decodeOutput(output: ort.InferenceSession.OnnxValueMapType): { text: string; confidence: number } {
-  // Extract logits from model output - PaddleOCR recognition models output 'softmax_5.tmp_0'
-  const logits = output['softmax_5.tmp_0'] || output['softmax_0.tmp_0'] || 
-                 output.output || output.logits || Object.values(output)[0]
+  // Get the output tensor - use the first output
+  const outputName = Object.keys(output)[0]
+  console.log('Recognition output name:', outputName)
   
-  if (!logits) return { text: '', confidence: 0 }
+  const logits = output[outputName]
+  
+  if (!logits) {
+    console.error('No logits found in output. Available outputs:', Object.keys(output))
+    return { text: '', confidence: 0 }
+  }
   
   const data = logits.data as Float32Array
   const shape = logits.dims as number[]
@@ -265,8 +291,12 @@ function decodeOutput(output: ort.InferenceSession.OnnxValueMapType): { text: st
   
   for (let i = 0; i < decoded.length; i++) {
     const charIdx = decoded[i]
-    if (charIdx < charDict.length) {
-      text += charDict[charIdx]
+    // PaddleOCR models output 1-based indices (0 is blank)
+    // But our charDict array is 0-indexed with blank at position 0
+    // So character at model index N is at charDict[N-1]
+    const dictIdx = charIdx - 1
+    if (dictIdx >= 0 && dictIdx < charDict.length) {
+      text += charDict[dictIdx]
       // Use softmax probability directly (no need to exp if already softmax)
       totalConfidence += confidences[i]
     }

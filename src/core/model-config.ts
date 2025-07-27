@@ -114,5 +114,6 @@ export function getModelConfig(id: string): ModelConfig | undefined {
 }
 
 export function getDefaultModelId(): string {
-  return 'ppocrv5-mobile' // Default to v5 mobile for best performance
+  // Default to en-mobile which is selected in the logs
+  return 'en-mobile'
 }
