@@ -291,12 +291,9 @@ function decodeOutput(output: ort.InferenceSession.OnnxValueMapType): { text: st
   
   for (let i = 0; i < decoded.length; i++) {
     const charIdx = decoded[i]
-    // PaddleOCR models output 1-based indices (0 is blank)
-    // But our charDict array is 0-indexed with blank at position 0
-    // So character at model index N is at charDict[N-1]
-    const dictIdx = charIdx - 1
-    if (dictIdx >= 0 && dictIdx < charDict.length) {
-      text += charDict[dictIdx]
+    // Direct index lookup - the dictionary already includes blank at position 0
+    if (charIdx >= 0 && charIdx < charDict.length) {
+      text += charDict[charIdx]
       // Use softmax probability directly (no need to exp if already softmax)
       totalConfidence += confidences[i]
     }
