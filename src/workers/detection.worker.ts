@@ -9,7 +9,7 @@ const DB_BOX_THRESH = 0.1  // Very low box threshold to capture all text regions
 const DB_UNCLIP_RATIO = 2.5  // Increased to capture full text boxes
 const DB_MIN_SIZE = 2
 const DB_MAX_CANDIDATES = 2000  // Increased to process more text candidates
-const PARAGRAPH_MERGE_THRESHOLD = 80  // Large vertical distance to merge text lines into paragraphs
+const PARAGRAPH_MERGE_THRESHOLD = 30  // Reasonable vertical distance to merge text lines into paragraphs
 
 self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
   const { type, data } = event.data
@@ -317,16 +317,15 @@ function findContours(
   
   // Apply morphological operations to connect nearby text regions
   // Use larger kernel for documents to connect text lines in paragraphs
-  const kernelSize = isDocument ? 7 : 2
+  const kernelSize = isDocument ? 3 : 2
   const dilatedBitmap = morphologicalDilate(bitmap, width, height, kernelSize)
   
   // For documents, apply additional horizontal dilation to connect words in lines
   let finalBitmap = dilatedBitmap
   if (isDocument) {
-    // Apply stronger horizontal dilation to merge words into lines
-    finalBitmap = morphologicalDilateHorizontal(dilatedBitmap, width, height, 7)
-    // Apply vertical dilation to connect lines into paragraphs
-    finalBitmap = morphologicalDilateVertical(finalBitmap, width, height, 3)
+    // Apply moderate horizontal dilation to merge words into lines
+    finalBitmap = morphologicalDilateHorizontal(dilatedBitmap, width, height, 5)
+    // Skip vertical dilation to prevent over-merging
   }
   
   for (let y = 0; y < height; y++) {
@@ -408,32 +407,6 @@ function morphologicalDilateHorizontal(
   return result
 }
 
-// Vertical morphological dilation to connect text lines into paragraphs
-function morphologicalDilateVertical(
-  bitmap: Uint8Array,
-  width: number,
-  height: number,
-  kernelHeight: number
-): Uint8Array {
-  const result = new Uint8Array(bitmap)
-  const halfKernel = Math.floor(kernelHeight / 2)
-  
-  for (let y = halfKernel; y < height - halfKernel; y++) {
-    for (let x = 0; x < width; x++) {
-      let maxVal = 0
-      
-      // Check vertical kernel area only
-      for (let ky = -halfKernel; ky <= halfKernel; ky++) {
-        const idx = (y + ky) * width + x
-        maxVal = Math.max(maxVal, bitmap[idx])
-      }
-      
-      result[y * width + x] = maxVal
-    }
-  }
-  
-  return result
-}
 
 // Trace a single contour using flood fill
 function traceContour(
@@ -586,7 +559,7 @@ function mergeParagraphBoxes(boxes: BoundingBox[]): BoundingBox[] {
     const lastInGroup = currentGroup[currentGroup.length - 1]
     
     // Calculate vertical distance between boxes
-    const verticalGap = currentBox.topLeft.y - lastInGroup.bottomLeft.y
+    const verticalGap = Math.max(0, currentBox.topLeft.y - lastInGroup.bottomLeft.y)
     
     // Check horizontal overlap
     const currentLeft = Math.min(currentBox.topLeft.x, currentBox.bottomLeft.x)
