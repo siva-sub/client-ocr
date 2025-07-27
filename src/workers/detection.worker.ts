@@ -9,7 +9,7 @@ const DB_BOX_THRESH = 0.1  // Very low box threshold to capture all text regions
 const DB_UNCLIP_RATIO = 2.5  // Increased to capture full text boxes
 const DB_MIN_SIZE = 2
 const DB_MAX_CANDIDATES = 2000  // Increased to process more text candidates
-const PARAGRAPH_MERGE_THRESHOLD = 30  // v1.1.7: Reduced from 80 to prevent over-merging
+const PARAGRAPH_MERGE_THRESHOLD = 30  // v1.1.8: Fixed merge logic + reduced from 80
 
 self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
   const { type, data } = event.data
@@ -188,7 +188,7 @@ function postprocessDetection(
   const effectiveUnclipRatio = isDocument ? 4.0 : DB_UNCLIP_RATIO  // Much larger expansion for full text capture
   const effectiveMinSize = isDocument ? 1 : DB_MIN_SIZE  // Accept tiny text regions in documents
   
-  console.log('Detection parameters (v1.1.7):', {
+  console.log('Detection parameters (v1.1.8):', {
     isDocument,
     threshold: effectiveThresh,
     boxThreshold: effectiveBoxThresh,
@@ -557,18 +557,24 @@ function mergeParagraphBoxes(boxes: BoundingBox[]): BoundingBox[] {
   
   for (let i = 1; i < sortedBoxes.length; i++) {
     const currentBox = sortedBoxes[i]
-    const lastInGroup = currentGroup[currentGroup.length - 1]
     
-    // Calculate vertical distance between boxes
-    const verticalGap = Math.max(0, currentBox.topLeft.y - lastInGroup.bottomLeft.y)
+    // Calculate vertical distance between boxes - compare with the bottom of the entire group
+    const groupBottom = Math.max(...currentGroup.map(b => Math.max(b.bottomLeft.y, b.bottomRight.y)))
+    const verticalGap = Math.max(0, currentBox.topLeft.y - groupBottom)
     
-    // Check horizontal overlap
+    // Check horizontal overlap with any box in the group
     const currentLeft = Math.min(currentBox.topLeft.x, currentBox.bottomLeft.x)
     const currentRight = Math.max(currentBox.topRight.x, currentBox.bottomRight.x)
-    const groupLeft = Math.min(...currentGroup.map(b => Math.min(b.topLeft.x, b.bottomLeft.x)))
-    const groupRight = Math.max(...currentGroup.map(b => Math.max(b.topRight.x, b.bottomRight.x)))
     
-    const hasHorizontalOverlap = !(currentRight < groupLeft || currentLeft > groupRight)
+    let hasHorizontalOverlap = false
+    for (const groupBox of currentGroup) {
+      const boxLeft = Math.min(groupBox.topLeft.x, groupBox.bottomLeft.x)
+      const boxRight = Math.max(groupBox.topRight.x, groupBox.bottomRight.x)
+      if (!(currentRight < boxLeft || currentLeft > boxRight)) {
+        hasHorizontalOverlap = true
+        break
+      }
+    }
     
     // If boxes are close vertically and have horizontal overlap, add to group
     if (verticalGap < PARAGRAPH_MERGE_THRESHOLD && hasHorizontalOverlap) {
