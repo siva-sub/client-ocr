@@ -301,5 +301,37 @@ function decodeOutput(output: ort.InferenceSession.OnnxValueMapType): { text: st
   
   const avgConfidence = decoded.length > 0 ? totalConfidence / decoded.length : 0
   
-  return { text: text.trim(), confidence: avgConfidence }
+  // Post-process to add spaces for better readability
+  // This is a simple heuristic for English text
+  const processedText = addSpacesIfNeeded(text.trim())
+  
+  return { text: processedText, confidence: avgConfidence }
+}
+
+// Add spaces between words based on common patterns
+function addSpacesIfNeeded(text: string): string {
+  // If text already has spaces, return as-is
+  if (text.includes(' ')) {
+    return text
+  }
+  
+  // For text without spaces, try to intelligently add them
+  // This is a simple heuristic that works for many cases
+  let result = text
+  
+  // Add space before uppercase letters that follow lowercase letters
+  result = result.replace(/([a-z])([A-Z])/g, '$1 $2')
+  
+  // Add space between letters and numbers
+  result = result.replace(/([a-zA-Z])(\d)/g, '$1 $2')
+  result = result.replace(/(\d)([a-zA-Z])/g, '$1 $2')
+  
+  // Common abbreviations that should stay together
+  const abbreviations = ['OCR', 'PDF', 'URL', 'API', 'HTML', 'CSS', 'XML', 'JSON']
+  for (const abbr of abbreviations) {
+    const spaced = abbr.split('').join(' ')
+    result = result.replace(new RegExp(spaced, 'g'), abbr)
+  }
+  
+  return result
 }
