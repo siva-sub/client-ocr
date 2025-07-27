@@ -9,6 +9,7 @@ const DB_BOX_THRESH = 0.3  // Lower threshold to capture more text regions in do
 const DB_UNCLIP_RATIO = 2.0  // Increased to capture full paragraph boxes
 const DB_MIN_SIZE = 3
 const DB_MAX_CANDIDATES = 1000  // Maximum number of text candidates to process
+const PARAGRAPH_MERGE_THRESHOLD = 50  // Vertical distance to merge text lines into paragraphs
 
 self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
   const { type, data } = event.data
@@ -182,9 +183,10 @@ function postprocessDetection(
   const [, , mapHeight, mapWidth] = output.dims as number[]
   
   // Use more aggressive thresholds for documents
-  const effectiveThresh = isDocument ? Math.min(DB_THRESH, 0.1) : DB_THRESH
-  const effectiveBoxThresh = isDocument ? Math.min(DB_BOX_THRESH, 0.2) : DB_BOX_THRESH
-  const effectiveUnclipRatio = isDocument ? Math.max(DB_UNCLIP_RATIO, 2.5) : DB_UNCLIP_RATIO
+  const effectiveThresh = isDocument ? 0.05 : DB_THRESH  // Very low threshold for documents
+  const effectiveBoxThresh = isDocument ? 0.15 : DB_BOX_THRESH  // Much lower for documents
+  const effectiveUnclipRatio = isDocument ? 3.0 : DB_UNCLIP_RATIO  // Larger expansion for paragraphs
+  const effectiveMinSize = isDocument ? 2 : DB_MIN_SIZE  // Smaller minimum size for documents
   
   console.log('Detection parameters:', {
     isDocument,
@@ -260,9 +262,9 @@ function postprocessDetection(
     // Check minimum size
     const boxWidth = Math.abs(expandedBox.topRight.x - expandedBox.topLeft.x)
     const boxHeight = Math.abs(expandedBox.bottomLeft.y - expandedBox.topLeft.y)
-    if (Math.min(boxWidth, boxHeight) < DB_MIN_SIZE) {
+    if (Math.min(boxWidth, boxHeight) < effectiveMinSize) {
       rejectionReasons.too_small++
-      console.log(`Box rejected: size ${Math.min(boxWidth, boxHeight).toFixed(1)} < minimum ${DB_MIN_SIZE}`)
+      console.log(`Box rejected: size ${Math.min(boxWidth, boxHeight).toFixed(1)} < minimum ${effectiveMinSize}`)
       continue
     }
     
@@ -293,6 +295,13 @@ function postprocessDetection(
     rejectionReasons
   })
   
+  // For documents, merge nearby boxes that likely belong to the same paragraph
+  if (isDocument && boxes.length > 0) {
+    const mergedBoxes = mergeParagraphBoxes(boxes)
+    console.log(`Merged ${boxes.length} boxes into ${mergedBoxes.length} paragraph boxes`)
+    return mergedBoxes
+  }
+  
   return boxes
 }
 
@@ -308,15 +317,20 @@ function findContours(
   
   // Apply morphological operations to connect nearby text regions
   // Use larger kernel for documents to connect text lines in paragraphs
-  const kernelSize = isDocument ? 3 : 2
+  const kernelSize = isDocument ? 5 : 2
   const dilatedBitmap = morphologicalDilate(bitmap, width, height, kernelSize)
+  
+  // For documents, apply additional horizontal dilation to connect words in lines
+  const finalBitmap = isDocument ? 
+    morphologicalDilateHorizontal(dilatedBitmap, width, height, 3) : 
+    dilatedBitmap
   
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = y * width + x
       
-      if (dilatedBitmap[idx] === 255 && !visited[idx]) {
-        const contour = traceContour(dilatedBitmap, visited, x, y, width, height)
+      if (finalBitmap[idx] === 255 && !visited[idx]) {
+        const contour = traceContour(finalBitmap, visited, x, y, width, height)
         if (contour.length > 5) { // Lowered minimum contour size for small text
           contours.push(contour)
         }
@@ -354,6 +368,33 @@ function morphologicalDilate(
           const idx = (y + ky) * width + (x + kx)
           maxVal = Math.max(maxVal, bitmap[idx])
         }
+      }
+      
+      result[y * width + x] = maxVal
+    }
+  }
+  
+  return result
+}
+
+// Horizontal morphological dilation to connect words in text lines
+function morphologicalDilateHorizontal(
+  bitmap: Uint8Array,
+  width: number,
+  height: number,
+  kernelWidth: number
+): Uint8Array {
+  const result = new Uint8Array(bitmap)
+  const halfKernel = Math.floor(kernelWidth / 2)
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = halfKernel; x < width - halfKernel; x++) {
+      let maxVal = 0
+      
+      // Check horizontal kernel area only
+      for (let kx = -halfKernel; kx <= halfKernel; kx++) {
+        const idx = y * width + (x + kx)
+        maxVal = Math.max(maxVal, bitmap[idx])
       }
       
       result[y * width + x] = maxVal
@@ -412,6 +453,17 @@ function minAreaRect(contour: Array<{x: number, y: number}>): BoundingBox | null
     minY = Math.min(minY, point.y)
     maxX = Math.max(maxX, point.x)
     maxY = Math.max(maxY, point.y)
+  }
+  
+  // For very thin boxes (likely text lines), ensure minimum height
+  const width = maxX - minX
+  const height = maxY - minY
+  
+  // If the box is too thin vertically, expand it
+  if (height < 5 && width > 20) {
+    const centerY = (minY + maxY) / 2
+    minY = centerY - 5
+    maxY = centerY + 5
   }
   
   return {
@@ -481,5 +533,73 @@ function unclipBox(box: BoundingBox, unclipRatio: number): BoundingBox | null {
       x: centerX - expandedWidth / 2, 
       y: centerY + expandedHeight / 2 
     }
+  }
+}
+
+// Merge boxes that likely belong to the same paragraph
+function mergeParagraphBoxes(boxes: BoundingBox[]): BoundingBox[] {
+  if (boxes.length === 0) return boxes
+  
+  // Sort boxes by vertical position (top to bottom)
+  const sortedBoxes = [...boxes].sort((a, b) => {
+    const centerYA = (a.topLeft.y + a.bottomLeft.y) / 2
+    const centerYB = (b.topLeft.y + b.bottomLeft.y) / 2
+    return centerYA - centerYB
+  })
+  
+  const merged: BoundingBox[] = []
+  let currentGroup: BoundingBox[] = [sortedBoxes[0]]
+  
+  for (let i = 1; i < sortedBoxes.length; i++) {
+    const currentBox = sortedBoxes[i]
+    const lastInGroup = currentGroup[currentGroup.length - 1]
+    
+    // Calculate vertical distance between boxes
+    const verticalGap = currentBox.topLeft.y - lastInGroup.bottomLeft.y
+    
+    // Check horizontal overlap
+    const currentLeft = Math.min(currentBox.topLeft.x, currentBox.bottomLeft.x)
+    const currentRight = Math.max(currentBox.topRight.x, currentBox.bottomRight.x)
+    const groupLeft = Math.min(...currentGroup.map(b => Math.min(b.topLeft.x, b.bottomLeft.x)))
+    const groupRight = Math.max(...currentGroup.map(b => Math.max(b.topRight.x, b.bottomRight.x)))
+    
+    const hasHorizontalOverlap = !(currentRight < groupLeft || currentLeft > groupRight)
+    
+    // If boxes are close vertically and have horizontal overlap, add to group
+    if (verticalGap < PARAGRAPH_MERGE_THRESHOLD && hasHorizontalOverlap) {
+      currentGroup.push(currentBox)
+    } else {
+      // Create merged box for current group
+      if (currentGroup.length > 1) {
+        merged.push(createMergedBox(currentGroup))
+      } else {
+        merged.push(currentGroup[0])
+      }
+      currentGroup = [currentBox]
+    }
+  }
+  
+  // Don't forget the last group
+  if (currentGroup.length > 1) {
+    merged.push(createMergedBox(currentGroup))
+  } else {
+    merged.push(currentGroup[0])
+  }
+  
+  return merged
+}
+
+// Create a single bounding box that encompasses all boxes in the group
+function createMergedBox(group: BoundingBox[]): BoundingBox {
+  const minX = Math.min(...group.map(b => Math.min(b.topLeft.x, b.bottomLeft.x)))
+  const maxX = Math.max(...group.map(b => Math.max(b.topRight.x, b.bottomRight.x)))
+  const minY = Math.min(...group.map(b => Math.min(b.topLeft.y, b.topRight.y)))
+  const maxY = Math.max(...group.map(b => Math.max(b.bottomLeft.y, b.bottomRight.y)))
+  
+  return {
+    topLeft: { x: minX, y: minY },
+    topRight: { x: maxX, y: minY },
+    bottomRight: { x: maxX, y: maxY },
+    bottomLeft: { x: minX, y: maxY }
   }
 }
