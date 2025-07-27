@@ -4,12 +4,12 @@ import type { WorkerMessage, BoundingBox } from '../types/ocr.types'
 let session: ort.InferenceSession | null = null
 
 // DB postprocessing parameters - Optimized for document text detection
-const DB_THRESH = 0.15  // Further lowered for dense document text detection
-const DB_BOX_THRESH = 0.3  // Lower threshold to capture more text regions in documents
-const DB_UNCLIP_RATIO = 2.0  // Increased to capture full paragraph boxes
-const DB_MIN_SIZE = 3
-const DB_MAX_CANDIDATES = 1000  // Maximum number of text candidates to process
-const PARAGRAPH_MERGE_THRESHOLD = 50  // Vertical distance to merge text lines into paragraphs
+const DB_THRESH = 0.1  // Very low threshold for maximum text detection
+const DB_BOX_THRESH = 0.1  // Very low box threshold to capture all text regions
+const DB_UNCLIP_RATIO = 2.5  // Increased to capture full text boxes
+const DB_MIN_SIZE = 2
+const DB_MAX_CANDIDATES = 2000  // Increased to process more text candidates
+const PARAGRAPH_MERGE_THRESHOLD = 80  // Large vertical distance to merge text lines into paragraphs
 
 self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
   const { type, data } = event.data
@@ -183,10 +183,10 @@ function postprocessDetection(
   const [, , mapHeight, mapWidth] = output.dims as number[]
   
   // Use more aggressive thresholds for documents
-  const effectiveThresh = isDocument ? 0.05 : DB_THRESH  // Very low threshold for documents
-  const effectiveBoxThresh = isDocument ? 0.15 : DB_BOX_THRESH  // Much lower for documents
-  const effectiveUnclipRatio = isDocument ? 3.0 : DB_UNCLIP_RATIO  // Larger expansion for paragraphs
-  const effectiveMinSize = isDocument ? 2 : DB_MIN_SIZE  // Smaller minimum size for documents
+  const effectiveThresh = isDocument ? 0.02 : DB_THRESH  // Ultra-low threshold for documents
+  const effectiveBoxThresh = isDocument ? 0.05 : DB_BOX_THRESH  // Extremely low for documents
+  const effectiveUnclipRatio = isDocument ? 4.0 : DB_UNCLIP_RATIO  // Much larger expansion for full text capture
+  const effectiveMinSize = isDocument ? 1 : DB_MIN_SIZE  // Accept tiny text regions in documents
   
   console.log('Detection parameters:', {
     isDocument,
@@ -317,13 +317,17 @@ function findContours(
   
   // Apply morphological operations to connect nearby text regions
   // Use larger kernel for documents to connect text lines in paragraphs
-  const kernelSize = isDocument ? 5 : 2
+  const kernelSize = isDocument ? 7 : 2
   const dilatedBitmap = morphologicalDilate(bitmap, width, height, kernelSize)
   
   // For documents, apply additional horizontal dilation to connect words in lines
-  const finalBitmap = isDocument ? 
-    morphologicalDilateHorizontal(dilatedBitmap, width, height, 3) : 
-    dilatedBitmap
+  let finalBitmap = dilatedBitmap
+  if (isDocument) {
+    // Apply stronger horizontal dilation to merge words into lines
+    finalBitmap = morphologicalDilateHorizontal(dilatedBitmap, width, height, 7)
+    // Apply vertical dilation to connect lines into paragraphs
+    finalBitmap = morphologicalDilateVertical(finalBitmap, width, height, 3)
+  }
   
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -394,6 +398,33 @@ function morphologicalDilateHorizontal(
       // Check horizontal kernel area only
       for (let kx = -halfKernel; kx <= halfKernel; kx++) {
         const idx = y * width + (x + kx)
+        maxVal = Math.max(maxVal, bitmap[idx])
+      }
+      
+      result[y * width + x] = maxVal
+    }
+  }
+  
+  return result
+}
+
+// Vertical morphological dilation to connect text lines into paragraphs
+function morphologicalDilateVertical(
+  bitmap: Uint8Array,
+  width: number,
+  height: number,
+  kernelHeight: number
+): Uint8Array {
+  const result = new Uint8Array(bitmap)
+  const halfKernel = Math.floor(kernelHeight / 2)
+  
+  for (let y = halfKernel; y < height - halfKernel; y++) {
+    for (let x = 0; x < width; x++) {
+      let maxVal = 0
+      
+      // Check vertical kernel area only
+      for (let ky = -halfKernel; ky <= halfKernel; ky++) {
+        const idx = (y + ky) * width + x
         maxVal = Math.max(maxVal, bitmap[idx])
       }
       

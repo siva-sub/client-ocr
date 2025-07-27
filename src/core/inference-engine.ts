@@ -358,16 +358,17 @@ export class InferenceEngine {
   private detectDocumentImage(imageData: ImageData): boolean {
     const { width, height, data } = imageData
     
-    // Check aspect ratio (documents are usually portrait)
+    // Check aspect ratio (documents are usually portrait or standard sizes)
     const aspectRatio = height / width
-    const isPortrait = aspectRatio > 1.2
+    const isDocumentAspect = aspectRatio > 1.1 || (aspectRatio > 0.7 && aspectRatio < 0.8) // A4 or Letter
     
     // Check resolution (documents are usually high-res)
-    const isHighRes = Math.min(width, height) > 1000
+    const isHighRes = Math.min(width, height) > 800
     
     // Check color distribution (documents usually have high contrast)
     let whitePixels = 0
     let darkPixels = 0
+    let textLikePixels = 0
     const sampleRate = 10 // Sample every 10th pixel for performance
     
     for (let i = 0; i < data.length; i += 4 * sampleRate) {
@@ -377,16 +378,40 @@ export class InferenceEngine {
       const brightness = (r + g + b) / 3
       
       if (brightness > 200) whitePixels++
-      if (brightness < 100) darkPixels++
+      if (brightness < 80) darkPixels++
+      
+      // Check for text-like patterns (high contrast transitions)
+      if (i > 4 * sampleRate) {
+        const prevBrightness = (data[i - 4 * sampleRate] + data[i - 4 * sampleRate + 1] + data[i - 4 * sampleRate + 2]) / 3
+        if (Math.abs(brightness - prevBrightness) > 100) textLikePixels++
+      }
     }
     
     const totalSampled = data.length / (4 * sampleRate)
     const whiteRatio = whitePixels / totalSampled
     const darkRatio = darkPixels / totalSampled
-    const hasHighContrast = whiteRatio > 0.3 && darkRatio > 0.1
+    const textPatternRatio = textLikePixels / totalSampled
+    const hasHighContrast = whiteRatio > 0.2 && darkRatio > 0.05
+    const hasTextPatterns = textPatternRatio > 0.02
     
-    // It's likely a document if it's portrait, high-res, and has high contrast
-    return isPortrait && isHighRes && hasHighContrast
+    // It's likely a document if it has document-like aspect ratio, decent resolution, and text patterns
+    const isDocument = isDocumentAspect && isHighRes && (hasHighContrast || hasTextPatterns)
+    
+    console.log('Document detection:', {
+      width,
+      height,
+      aspectRatio,
+      isDocumentAspect,
+      isHighRes,
+      whiteRatio,
+      darkRatio,
+      textPatternRatio,
+      hasHighContrast,
+      hasTextPatterns,
+      isDocument
+    })
+    
+    return isDocument
   }
   
   private sortBoxesByReadingOrder(boxes: BoundingBox[]): BoundingBox[] {
