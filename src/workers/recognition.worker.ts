@@ -263,9 +263,8 @@ function preprocessForRecognition(
   // Get resized image data
   const resizedData = ctx.getImageData(0, 0, targetWidth, targetHeight).data
   
-  // Normalize for recognition model (different from detection!)
+  // Normalize for recognition model
   // Recognition uses: (pixel_value / 255.0 - 0.5) / 0.5
-  // Important: Convert to grayscale first (using only R channel for all RGB)
   const normalized = new Float32Array(3 * targetHeight * targetWidth)
   
   for (let y = 0; y < targetHeight; y++) {
@@ -273,14 +272,15 @@ function preprocessForRecognition(
       const idx = (y * targetWidth + x) * 4
       const pixelIdx = y * targetWidth + x
       
-      // Use only the red channel value for grayscale (PaddleOCR convention)
-      const grayValue = resizedData[idx] / 255.0
-      const normalizedValue = (grayValue - 0.5) / 0.5
+      // Process each channel separately (matching OnnxOCR)
+      const r = resizedData[idx] / 255.0
+      const g = resizedData[idx + 1] / 255.0
+      const b = resizedData[idx + 2] / 255.0
       
-      // Apply the same grayscale value to all three channels
-      normalized[pixelIdx] = normalizedValue // R
-      normalized[targetHeight * targetWidth + pixelIdx] = normalizedValue // G
-      normalized[2 * targetHeight * targetWidth + pixelIdx] = normalizedValue // B
+      // Apply normalization: (value - 0.5) / 0.5
+      normalized[pixelIdx] = (r - 0.5) / 0.5 // R channel
+      normalized[targetHeight * targetWidth + pixelIdx] = (g - 0.5) / 0.5 // G channel
+      normalized[2 * targetHeight * targetWidth + pixelIdx] = (b - 0.5) / 0.5 // B channel
     }
   }
   
@@ -322,6 +322,8 @@ function decodeOutput(output: ort.InferenceSession.OnnxValueMapType): { text: st
     console.error('Unexpected output shape:', shape)
     return { text: '', confidence: 0 }
   }
+  
+  console.log('Recognition output shape:', shape, 'seqLen:', seqLen, 'vocabSize:', vocabSize)
   
   // CTC decoding with duplicate removal
   const decoded: number[] = []
