@@ -23,46 +23,45 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
         console.log('Input names:', session.inputNames)
         console.log('Output names:', session.outputNames)
         
+        // Reset model-specific flags
+        ;(self as any).dictFormat = 'standard' // 'standard', 'blank-first', 'ascii-output'
+        ;(self as any).modelType = 'unknown'
+        
         // Load character dictionary from file if provided
         if (data.dictPath) {
           try {
             const response = await fetch(data.dictPath)
             const text = await response.text()
-            // PaddleOCR dictionary format:
-            // Line 1: blank token (empty line)
-            // Line 2+: actual characters
             const lines = text.split('\n').filter(line => line !== undefined)
             
-            // Ensure we have the blank token at index 0
-            if (lines.length > 0 && lines[0] === '') {
-              // Dictionary already has blank token, use as-is
+            // Analyze dictionary format and model type
+            analyzeDictionaryFormat(lines, data.dictPath)
+            
+            // Process dictionary based on detected format
+            if ((self as any).dictFormat === 'blank-first') {
+              // Dictionary has blank line first (1-based indexing)
               charDict = lines
+            } else if ((self as any).dictFormat === 'standard') {
+              // Standard format - ensure blank token at index 0
+              if (lines.length > 0 && lines[0] === '') {
+                charDict = lines
+              } else {
+                charDict = ['', ...lines.filter(line => line.trim() !== '')]
+              }
             } else {
-              // Add blank token if missing
-              charDict = ['', ...lines.filter(line => line.trim() !== '')]
+              // ASCII output format - dictionary is for reference only
+              charDict = lines
             }
             
-            console.log(`Loaded dictionary with ${charDict.length} characters (including blank)`)
-            
-            // Check if this is a multilingual dictionary (very large)
-            // and if we need special handling
-            if (charDict.length > 10000) {
-              console.log('Detected multilingual dictionary')
-              // Store a flag for multilingual handling
-              ;(self as any).isMultilingual = true
-            }
-            
-            // Check if this is the en-mobile model which also uses 1-based indexing
-            if (data.dictPath && data.dictPath.includes('en-mobile')) {
-              console.log('Detected en-mobile model - using 1-based indexing')
-              ;(self as any).usesOneBasedIndexing = true
-            }
+            console.log(`Loaded dictionary: ${charDict.length} chars, format: ${(self as any).dictFormat}, model: ${(self as any).modelType}`)
           } catch (error) {
             console.warn('Failed to load dictionary, using default:', error)
             charDict = generateDefaultCharDict()
+            ;(self as any).dictFormat = 'standard'
           }
         } else {
           charDict = data.charDict || generateDefaultCharDict()
+          ;(self as any).dictFormat = 'standard'
         }
         
         self.postMessage({ type: 'RESULT', data: { initialized: true } })
@@ -113,6 +112,56 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
       break
   }
 })
+
+// Analyze dictionary format and detect model type
+function analyzeDictionaryFormat(lines: string[], dictPath: string): void {
+  const self = globalThis as any
+  
+  // Check model type from path
+  if (dictPath.includes('en-mobile')) {
+    self.modelType = 'en-mobile'
+    self.dictFormat = 'ascii-output' // Special case - outputs ASCII codes
+    return
+  } else if (dictPath.includes('ppocrv5')) {
+    self.modelType = 'ppocrv5'
+  } else if (dictPath.includes('ppocrv4')) {
+    self.modelType = 'ppocrv4'
+  } else if (dictPath.includes('ppocrv2')) {
+    self.modelType = 'ppocrv2'
+  } else if (dictPath.includes('en-ppocr')) {
+    self.modelType = 'en-ppocr'
+  }
+  
+  // Analyze dictionary content
+  if (lines.length === 0) {
+    self.dictFormat = 'standard'
+    return
+  }
+  
+  // Check if first line is blank (indicates 1-based indexing)
+  if (lines[0] === '' || lines[0] === ' ') {
+    self.dictFormat = 'blank-first'
+    return
+  }
+  
+  // Check if it's a standard PaddleOCR en_dict.txt format
+  // (starts with digits 0-9, then letters)
+  if (lines.length > 10 && lines[0] === '0' && lines[9] === '9') {
+    self.dictFormat = 'standard'
+    return
+  }
+  
+  // Check if it's a multilingual dictionary (contains non-ASCII characters)
+  const hasNonAscii = lines.some(line => 
+    line.length > 0 && [...line].some(char => char.charCodeAt(0) > 127)
+  )
+  
+  if (hasNonAscii || lines.length > 1000) {
+    self.dictFormat = 'blank-first' // Most multilingual dicts use 1-based
+  } else {
+    self.dictFormat = 'standard'
+  }
+}
 
 function generateDefaultCharDict(): string[] {
   const chars = ['<blank>']
@@ -299,43 +348,52 @@ function decodeOutput(output: ort.InferenceSession.OnnxValueMapType): { text: st
     prevIdx = maxIdx
   }
   
-  // Convert indices to characters
+  // Convert indices to characters based on dictionary format
   let text = ''
   let totalConfidence = 0
+  const dictFormat = (self as any).dictFormat
+  const modelType = (self as any).modelType
   
-  // Debug: Log first few character indices
-  if (decoded.length > 0) {
-    console.log('First few decoded indices:', decoded.slice(0, 5))
-    console.log('Dictionary sample:', charDict.slice(0, 10))
+  // Debug logging for first prediction
+  if (decoded.length > 0 && !((self as any).hasLoggedDecode)) {
+    console.log('Model type:', modelType, 'Dict format:', dictFormat)
+    console.log('First few decoded values:', decoded.slice(0, 10))
+    console.log('Dictionary preview:', charDict.slice(0, 10))
+    ;(self as any).hasLoggedDecode = true
   }
   
   for (let i = 0; i < decoded.length; i++) {
-    const charIdx = decoded[i]
+    const value = decoded[i]
     
-    // Check if this is the en-mobile model which outputs ASCII codes
-    let dictIdx = charIdx
-    if ((self as any).usesOneBasedIndexing) {
-      // The en-mobile model seems to output ASCII codes directly
-      // Let's check if the value is in ASCII range
-      if (charIdx >= 32 && charIdx <= 126) {
-        // This is an ASCII code, convert to character
-        text += String.fromCharCode(charIdx)
+    // Handle different output formats
+    if (dictFormat === 'ascii-output') {
+      // en-mobile: outputs ASCII codes directly
+      if (value >= 32 && value <= 126) {
+        text += String.fromCharCode(value)
         totalConfidence += confidences[i]
+      } else if (value === 0) {
+        // Skip blank token
         continue
-      } else {
-        // Fall back to dictionary lookup with offset
-        dictIdx = charIdx - 1
       }
-    } else if ((self as any).isMultilingual) {
-      // Multilingual models use 1-based indexing
-      dictIdx = charIdx - 1
-    }
-    
-    // Direct index lookup - the dictionary already includes blank at position 0
-    if (dictIdx >= 0 && dictIdx < charDict.length) {
-      text += charDict[dictIdx]
-      // Use softmax probability directly (no need to exp if already softmax)
-      totalConfidence += confidences[i]
+    } else if (dictFormat === 'blank-first') {
+      // 1-based indexing (blank line at index 0)
+      if (value > 0 && value < charDict.length) {
+        const char = charDict[value]
+        if (char && char !== '') {
+          text += char
+          totalConfidence += confidences[i]
+        }
+      }
+    } else {
+      // Standard format (0-based indexing)
+      if (value >= 0 && value < charDict.length) {
+        const char = charDict[value]
+        // Skip blank token (usually at index 0)
+        if (char && char !== '' && char !== '<blank>') {
+          text += char
+          totalConfidence += confidences[i]
+        }
+      }
     }
   }
   
