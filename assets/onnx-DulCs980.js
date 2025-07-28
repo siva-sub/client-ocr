@@ -2868,4 +2868,4 @@ ${n}`,u=r.createShaderModule({code:s,label:e.name});le("verbose",()=>`[WebGPU] $
  * See the License for the specific language governing permissions and
  * limitations under the License.
  * =============================================================================
- */export{ld as F,Qe as H,ge as b};
+ */export{ge as b};
