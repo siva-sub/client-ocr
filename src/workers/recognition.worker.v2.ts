@@ -211,16 +211,20 @@ function preprocessForRecognition(
   // Get target dimensions
   const [channels, targetHeight, _imgWidth] = config.rec_img_shape!
   
-  // Calculate dynamic width based on max aspect ratio (RapidOCR approach)
-  const targetWidth = Math.round(targetHeight * maxWhRatio)
+  // Get model expected width
+  const modelExpectedWidth = config.rec_img_shape![2] // Should be 320
+  
+  // Calculate dynamic width based on max aspect ratio
+  const dynamicWidth = Math.round(targetHeight * maxWhRatio)
   
   // Calculate actual resize width
   const scale = targetHeight / height
   let resizeWidth = Math.round(width * scale)
-  resizeWidth = Math.min(resizeWidth, targetWidth)
+  resizeWidth = Math.min(resizeWidth, dynamicWidth)
+  resizeWidth = Math.min(resizeWidth, modelExpectedWidth) // Cannot exceed model width
   resizeWidth = Math.max(resizeWidth, 8) // Minimum width
   
-  console.log(`Recognition preprocessing: input ${width}x${height} → resize ${resizeWidth}x${targetHeight} → target ${targetWidth}x${targetHeight}`)
+  console.log(`Recognition preprocessing: input ${width}x${height} → resize ${resizeWidth}x${targetHeight} → padded ${modelExpectedWidth}x${targetHeight}`)
   
   // Create canvas for resizing
   const canvas = new OffscreenCanvas(resizeWidth, targetHeight)
@@ -244,14 +248,14 @@ function preprocessForRecognition(
   // Get resized image data
   const resizedData = ctx.getImageData(0, 0, resizeWidth, targetHeight).data
   
-  // Create padded tensor with dynamic width
-  const normalized = new Float32Array(channels * targetHeight * targetWidth)
+  // Create padded tensor with the model's expected width (320)
+  const normalized = new Float32Array(channels * targetHeight * modelExpectedWidth)
   
   // Apply RapidOCR normalization: (pixel/255 - 0.5) / 0.5
   for (let y = 0; y < targetHeight; y++) {
     for (let x = 0; x < resizeWidth; x++) {
       const idx = (y * resizeWidth + x) * 4
-      const outIdx = y * targetWidth + x
+      const outIdx = y * modelExpectedWidth + x
       
       // Process each channel separately (RGB)
       const r = resizedData[idx] / 255.0
@@ -260,14 +264,14 @@ function preprocessForRecognition(
       
       // Apply normalization: (value - 0.5) / 0.5
       normalized[outIdx] = (r - 0.5) / 0.5 // R channel
-      normalized[targetHeight * targetWidth + outIdx] = (g - 0.5) / 0.5 // G channel
-      normalized[2 * targetHeight * targetWidth + outIdx] = (b - 0.5) / 0.5 // B channel
+      normalized[targetHeight * modelExpectedWidth + outIdx] = (g - 0.5) / 0.5 // G channel
+      normalized[2 * targetHeight * modelExpectedWidth + outIdx] = (b - 0.5) / 0.5 // B channel
     }
   }
   
   // Padding area remains 0 (which is -1 after normalization)
   
-  return new ort.Tensor('float32', normalized, [1, channels, targetHeight, targetWidth])
+  return new ort.Tensor('float32', normalized, [1, channels, targetHeight, modelExpectedWidth])
 }
 
 function decodeOutput(output: ort.Tensor, batchIndex: number): { text: string; confidence: number } {
