@@ -9,7 +9,7 @@ const DB_BOX_THRESH = 0.1  // Very low box threshold to capture all text regions
 const DB_UNCLIP_RATIO = 2.5  // Increased to capture full text boxes
 const DB_MIN_SIZE = 2
 const DB_MAX_CANDIDATES = 2000  // Increased to process more text candidates
-const PARAGRAPH_MERGE_THRESHOLD = 30  // v1.1.8: Fixed merge logic + reduced from 80
+const PARAGRAPH_MERGE_THRESHOLD = 10  // v1.1.13: Further reduced to improve word separation
 
 self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
   const { type, data } = event.data

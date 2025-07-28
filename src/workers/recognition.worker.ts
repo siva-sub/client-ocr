@@ -358,8 +358,9 @@ function decodeOutput(output: ort.InferenceSession.OnnxValueMapType): { text: st
   // Debug logging for first prediction
   if (decoded.length > 0 && !((self as any).hasLoggedDecode)) {
     console.log('Model type:', modelType, 'Dict format:', dictFormat)
-    console.log('First few decoded values:', decoded.slice(0, 10))
+    console.log('Full decoded values:', decoded)
     console.log('Dictionary preview:', charDict.slice(0, 10))
+    console.log('Expected indices for "Hello": H=25, e=54, l=61, l=61, o=64')
     ;(self as any).hasLoggedDecode = true
   }
   
