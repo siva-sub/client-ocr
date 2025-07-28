@@ -51,6 +51,12 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
               // Store a flag for multilingual handling
               ;(self as any).isMultilingual = true
             }
+            
+            // Check if this is the en-mobile model which also uses 1-based indexing
+            if (data.dictPath && data.dictPath.includes('en-mobile')) {
+              console.log('Detected en-mobile model - using 1-based indexing')
+              ;(self as any).usesOneBasedIndexing = true
+            }
           } catch (error) {
             console.warn('Failed to load dictionary, using default:', error)
             charDict = generateDefaultCharDict()
@@ -300,11 +306,11 @@ function decodeOutput(output: ort.InferenceSession.OnnxValueMapType): { text: st
   for (let i = 0; i < decoded.length; i++) {
     const charIdx = decoded[i]
     
-    // For multilingual dictionaries, we need to apply an offset
+    // For multilingual dictionaries and en-mobile, we need to apply an offset
     // This is because the model might be outputting 1-based indices
     let dictIdx = charIdx
-    if ((self as any).isMultilingual) {
-      // Multilingual models seem to use 1-based indexing
+    if ((self as any).isMultilingual || (self as any).usesOneBasedIndexing) {
+      // These models use 1-based indexing
       dictIdx = charIdx - 1
     }
     
