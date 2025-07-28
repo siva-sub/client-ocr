@@ -56,3 +56,9 @@ export interface ProcessingOptions {
   confidenceThreshold?: number
   language?: string
 }
+
+export interface OCRProgress {
+  stage: 'loading' | 'detection' | 'classification' | 'recognition'
+  progress: number
+  message?: string
+}

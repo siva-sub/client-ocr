@@ -610,3 +610,21 @@ export function extractModelInfo(model: string | ModelInfo): ModelInfo {
   }
   return model
 }
+
+// Get all language models
+export function getLanguageModels() {
+  return LANGUAGE_MODELS
+}
+
+// Check if a language is supported
+export function isLanguageSupported(lang: LangType, version: OCRVersion): boolean {
+  const langModel = LANGUAGE_MODELS[lang]
+  if (!langModel) return false
+  
+  return !!langModel.models.rec[version]
+}
+
+// Get all available languages
+export function getAvailableLanguages(): LangType[] {
+  return Object.keys(LANGUAGE_MODELS) as LangType[]
+}

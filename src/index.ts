@@ -1,5 +1,6 @@
 // Main library exports
 export { RapidOCREngine } from './core/rapid-ocr-engine'
+import { RapidOCREngine as RapidOCREngineClass } from './core/rapid-ocr-engine'
 export { InferenceEngine } from './core/inference-engine'
 export { ModelLoader } from './core/model-loader'
 export { ModelDownloader } from './core/model-downloader'
@@ -39,6 +40,7 @@ export type {
 } from './core/image-loader'
 
 // Configuration exports
+import type { LangType as LT, OCRVersion as OV, ModelType as MT } from './core/ocr-config'
 export {
   LANGUAGE_CONFIGS,
   type LangType,
@@ -65,9 +67,9 @@ export const VERSION = '1.0.0'
 
 // Factory function for easy initialization
 export function createOCREngine(options?: {
-  lang?: LangType
-  version?: OCRVersion
-  modelType?: ModelType
+  lang?: LT
+  version?: OV
+  modelType?: MT
 }) {
-  return new RapidOCREngine(options)
+  return new RapidOCREngineClass(options)
 }
