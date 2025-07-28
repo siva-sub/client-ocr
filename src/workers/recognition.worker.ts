@@ -68,9 +68,11 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
         const { imageData, width, height, boxes } = data
         const results = []
         
-        for (const box of boxes) {
+        for (let index = 0; index < boxes.length; index++) {
+          const box = boxes[index]
           // Crop image region
           const cropped = cropRegion(imageData, width, height, box)
+          console.log(`Processing box ${index + 1}/${boxes.length}: width=${cropped.width}, height=${cropped.height}`)
           
           // Preprocess for recognition
           const inputTensor = preprocessForRecognition(cropped.data, cropped.width, cropped.height)
@@ -246,14 +248,15 @@ function preprocessForRecognition(
       const idx = (y * targetWidth + x) * 4
       const pixelIdx = y * targetWidth + x
       
-      // Use grayscale (red channel only) like ppu-paddle-ocr
-      const grayValue = resizedData[idx] / 255.0
-      const normalizedValue = (grayValue - 0.5) / 0.5
+      // Process each channel separately (standard PaddleOCR uses RGB, not grayscale)
+      const r = resizedData[idx] / 255.0
+      const g = resizedData[idx + 1] / 255.0
+      const b = resizedData[idx + 2] / 255.0
       
-      // Fill all three channels with the same normalized grayscale value
-      normalized[pixelIdx] = normalizedValue // R channel
-      normalized[targetHeight * targetWidth + pixelIdx] = normalizedValue // G channel
-      normalized[2 * targetHeight * targetWidth + pixelIdx] = normalizedValue // B channel
+      // Apply normalization: (value - 0.5) / 0.5
+      normalized[pixelIdx] = (r - 0.5) / 0.5 // R channel
+      normalized[targetHeight * targetWidth + pixelIdx] = (g - 0.5) / 0.5 // G channel
+      normalized[2 * targetHeight * targetWidth + pixelIdx] = (b - 0.5) / 0.5 // B channel
     }
   }
   
