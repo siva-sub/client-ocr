@@ -21,16 +21,24 @@ export interface OCRResult {
   regions: TextRegion[]
   fullText: string
   processingTime: number
-  method: 'onnx' | 'tesseract'
+  method: 'onnx' | 'tesseract' | 'rapidocr'
   metadata?: {
     imageWidth: number
     imageHeight: number
     deskewAngle?: number
+    language?: string
+    ocrVersion?: string
+    modelType?: string
+    hasNativeText?: boolean
+    totalPages?: number
+    preprocessed?: boolean
+    originalType?: string
+    [key: string]: any
   }
 }
 
 export interface WorkerMessage {
-  type: 'INIT' | 'PROCESS' | 'RESULT' | 'ERROR' | 'PROGRESS'
+  type: 'INIT' | 'PROCESS' | 'RESULT' | 'ERROR' | 'PROGRESS' | 'CLASSIFY' | 'DETECT'
   data?: any
   error?: string
   progress?: number

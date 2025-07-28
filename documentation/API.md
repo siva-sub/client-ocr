@@ -1,19 +1,41 @@
-# Client-Side OCR - API Reference
+# Client-Side OCR v2.0 - API Reference with RapidOCR Integration
 
 ## Table of Contents
 1. [Core API](#core-api)
-2. [Type Definitions](#type-definitions)
-3. [React Components](#react-components)
-4. [Configuration Options](#configuration-options)
-5. [Error Handling](#error-handling)
-6. [Events](#events)
-7. [Utilities](#utilities)
+2. [RapidOCR Engine](#rapidocr-engine)
+3. [Type Definitions](#type-definitions)
+4. [React Components](#react-components)
+5. [Configuration Options](#configuration-options)
+6. [Language Support](#language-support)
+7. [Processing Pipeline](#processing-pipeline)
+8. [Error Handling](#error-handling)
+9. [Events](#events)
+10. [Utilities](#utilities)
+11. [Migration Guide](#migration-guide)
 
 ## Core API
 
-### createOCREngine(config?)
+### createRapidOCREngine(config)
 
-Creates a new OCR engine instance.
+Creates a new RapidOCR engine instance with language and model configuration.
+
+```typescript
+function createRapidOCREngine(config: RapidOCRConfig): RapidOCREngine
+
+interface RapidOCRConfig {
+  language: LangType;              // Required: Language code
+  modelVersion?: ModelVersion;     // Optional: 'PP-OCRv4' | 'PP-OCRv5'
+  modelType?: ModelType;          // Optional: 'mobile' | 'server'
+  onDownloadProgress?: (progress: DownloadProgress) => void;
+}
+
+type LangType = 'ch' | 'en' | 'fr' | 'de' | 'ja' | 'ko' | 'ru' | 
+                'pt' | 'es' | 'it' | 'id' | 'vi' | 'fa' | 'ka';
+```
+
+### createOCREngine(config?) [Legacy]
+
+Creates a legacy OCR engine instance for backward compatibility.
 
 ```typescript
 function createOCREngine(config?: OCREngineConfig): OCREngine
@@ -46,55 +68,70 @@ interface OCREngineConfig {
 ```typescript
 import { createOCREngine } from 'client-side-ocr';
 
-// Default configuration
-const ocr = createOCREngine();
+// RapidOCR with language selection
+const ocr = createRapidOCREngine({
+  language: 'en',
+  modelVersion: 'PP-OCRv4',
+  modelType: 'mobile',
+  onDownloadProgress: (progress) => {
+    console.log(`Downloaded: ${progress.loaded}/${progress.total} bytes`);
+  }
+});
 
-// Custom configuration
-const ocr = createOCREngine({
+// Legacy API for backward compatibility
+const ocrLegacy = createOCREngine({
   modelBasePath: '/custom/models/',
   enableDebug: true
 });
 ```
 
-### OCREngine
+## RapidOCR Engine
 
-The main OCR processing engine.
+The main RapidOCR processing engine with multi-language support and advanced processing techniques.
+
+### RapidOCREngine
 
 #### Methods
 
-##### initialize(modelId?)
+##### initialize()
 
-Initialize the OCR engine with a specific model.
+Initializes the OCR engine and downloads required models if not cached.
 
 ```typescript
-async initialize(modelId?: string): Promise<void>
+async initialize(): Promise<void>
 ```
-
-**Parameters:**
-- `modelId` (optional): The model to use. Defaults to 'ppocr-v5'
-  - `'ppocr-v5'` - Latest PaddleOCR v5 (default)
-  - `'ppocr-v4'` - PaddleOCR v4
-  - `'en-mobile'` - English-optimized mobile model
-  - `'ppocr-v2-server'` - Server model (detection only)
 
 **Example:**
 ```typescript
-// Use default model (ppocr-v5)
+// Models auto-download based on language config
 await ocr.initialize();
 
-// Use specific model
-await ocr.initialize('ppocr-v4');
+// Check download progress
+const ocr = createRapidOCREngine({
+  language: 'ja',
+  onDownloadProgress: (progress) => {
+    console.log(`Progress: ${progress.percent}%`);
+  }
+});
+await ocr.initialize();
 ```
 
 ##### processImage(input, options?)
 
-Process an image and extract text.
+Process an image and extract text with RapidOCR techniques.
 
 ```typescript
 async processImage(
-  input: File | Blob | HTMLImageElement | HTMLCanvasElement | ArrayBuffer,
-  options?: ProcessingOptions
-): Promise<OCRResult>
+  input: File | Blob | ImageData | HTMLImageElement | HTMLCanvasElement,
+  options?: ProcessOptions
+): Promise<RapidOCRResult>
+
+interface ProcessOptions {
+  enableTextClassification?: boolean;  // Enable 180° rotation detection
+  enableWordSegmentation?: boolean;     // Enable word-level segmentation
+  preprocessConfig?: PreprocessConfig;
+  postprocessConfig?: PostprocessConfig;
+}
 ```
 
 **Parameters:**
@@ -105,15 +142,23 @@ async processImage(
 
 **Example:**
 ```typescript
-// Process a file
-const file = document.getElementById('file-input').files[0];
-const result = await ocr.processImage(file);
-
-// Process with options
+// Process with RapidOCR techniques
 const result = await ocr.processImage(file, {
-  enableDeskew: true,
-  confidenceThreshold: 0.8
+  enableTextClassification: true,  // 180° rotation detection
+  enableWordSegmentation: true,     // Word-level boxes
+  preprocessConfig: {
+    detectImageNetNorm: true,       // ImageNet normalization
+    recStandardNorm: true           // Standard normalization
+  },
+  postprocessConfig: {
+    unclipRatio: 2.0,              // Text region expansion
+    boxThresh: 0.7                  // Box confidence threshold
+  }
 });
+
+console.log(result.text);           // Extracted text
+console.log(result.wordBoxes);      // Word-level segmentation
+console.log(result.angle);          // Detected rotation
 ```
 
 ##### processImageData(imageData, options?)
@@ -138,24 +183,36 @@ const data = await response.arrayBuffer();
 const result = await ocr.processImageData(data);
 ```
 
-##### switchModel(modelId)
+##### areModelsAvailable()
 
-Switch to a different OCR model.
+Checks if models for the configured language are available in cache.
 
 ```typescript
-async switchModel(modelId: string): Promise<void>
+async areModelsAvailable(): Promise<boolean>
 ```
-
-**Parameters:**
-- `modelId`: The model to switch to
 
 **Example:**
 ```typescript
-// Start with mobile model
-await ocr.initialize('en-mobile');
+if (!await ocr.areModelsAvailable()) {
+  console.log('Models will be downloaded on first use');
+}
+```
 
-// Switch to server model for better accuracy
-await ocr.switchModel('ppocr-v2-server');
+##### downloadModels(options?)
+
+Manually download models with optional force flag.
+
+```typescript
+async downloadModels(options?: { force?: boolean }): Promise<void>
+```
+
+**Example:**
+```typescript
+// Pre-download models
+await ocr.downloadModels();
+
+// Force re-download
+await ocr.downloadModels({ force: true });
 ```
 
 ##### isInitialized()
@@ -226,58 +283,85 @@ console.log(`Model load time: ${metrics.modelLoadTime}ms`);
 console.log(`Average processing: ${metrics.avgInferenceTime}ms`);
 ```
 
-##### dispose()
+##### destroy()
 
-Clean up resources.
+Cleanup resources and terminate workers.
 
 ```typescript
-dispose(): void
+destroy(): void
 ```
 
 **Example:**
 ```typescript
 // Clean up when done
-ocr.dispose();
+ocr.destroy();
 
 // In React
 useEffect(() => {
-  return () => ocr.dispose();
+  return () => ocr.destroy();
 }, []);
 ```
 
 ## Type Definitions
 
-### OCRResult
+### RapidOCRResult
 
-The result of OCR processing.
+The result object returned by `processImage()`.
 
 ```typescript
-interface OCRResult {
-  text: string;              // Combined text from all lines
-  lines: TextLine[];         // Individual text lines
-  confidence: number;        // Overall confidence (0-1)
-  processingTime: number;    // Processing time in milliseconds
-  method: 'onnx' | 'fallback'; // Processing method used
-  rotationApplied?: number;  // Rotation angle if deskew was applied
-  metadata?: {
-    imageWidth: number;
-    imageHeight: number;
-    modelUsed: string;
-    timestamp: number;
+interface RapidOCRResult {
+  text: string;                    // Full extracted text
+  confidence: number;              // Overall confidence (0-1)
+  lines: TextLine[];               // Individual text lines
+  wordBoxes?: WordSegmentation[];  // Word-level segmentation (if enabled)
+  angle?: number;                  // Detected rotation (0 or 180)
+  processingTime: ProcessingTime;  // Time breakdown
+  raw?: {                         // Raw outputs from each stage
+    detection: DetectionOutput;
+    classification?: ClassificationOutput;
+    recognition: RecognitionOutput;
   };
+}
+
+interface ProcessingTime {
+  total: number;
+  detection: number;
+  classification?: number;
+  recognition: number;
+  preprocessing?: number;
+  postprocessing?: number;
 }
 ```
 
 ### TextLine
 
-Individual text line information.
+Individual text line information with enhanced confidence metrics.
 
 ```typescript
 interface TextLine {
-  text: string;              // Text content
-  confidence: number;        // Confidence score (0-1)
-  boundingBox: number[][];   // [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
-  words?: Word[];            // Individual words (if available)
+  text: string;
+  confidence: number;
+  box: BoundingBox;
+  words?: WordInfo[];  // If word segmentation enabled
+}
+
+interface BoundingBox {
+  topLeft: Point;
+  topRight: Point;
+  bottomRight: Point;
+  bottomLeft: Point;
+}
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface WordInfo {
+  text: string;
+  position: number[];
+  confidence: number;
+  state: 'cn' | 'en&num';  // Chinese or English/numbers
 }
 ```
 
@@ -293,18 +377,46 @@ interface Word {
 }
 ```
 
-### ProcessingOptions
+### Configuration Types
 
-Options for image processing.
+#### PreprocessConfig
+
+Controls preprocessing behavior for different stages.
 
 ```typescript
-interface ProcessingOptions {
-  enableDeskew?: boolean;        // Auto-rotate tilted images (default: true)
-  enableFallback?: boolean;      // Use Tesseract.js fallback (default: true)
-  confidenceThreshold?: number;  // Minimum confidence (0-1, default: 0.7)
-  language?: 'eng' | 'chi';      // Language hint (default: 'eng')
-  preprocessImage?: boolean;     // Apply preprocessing (default: false)
-  outputFormat?: 'text' | 'json' | 'hocr'; // Output format (default: 'text')
+interface PreprocessConfig {
+  // Detection preprocessing
+  detectImageNetNorm?: boolean;     // Use ImageNet normalization (default: true)
+  detectLimitSideLen?: number;      // Max side length for detection (default: 736)
+  detectLimitType?: 'min' | 'max';  // Limit type (default: 'min')
+  
+  // Recognition preprocessing  
+  recStandardNorm?: boolean;        // Use standard normalization (default: true)
+  recImageShape?: [number, number, number]; // [C, H, W] (default: [3, 48, 320])
+  
+  // Classification preprocessing
+  clsImageShape?: [number, number, number]; // [C, H, W] (default: [3, 48, 192])
+  clsBatchNum?: number;             // Batch size for classification (default: 6)
+}
+```
+
+#### PostprocessConfig
+
+Controls postprocessing behavior.
+
+```typescript
+interface PostprocessConfig {
+  // DB postprocessing for detection
+  dbThresh?: number;          // Binarization threshold (default: 0.3)
+  boxThresh?: number;         // Box score threshold (default: 0.7)
+  unclipRatio?: number;       // Expansion ratio (default: 2.0)
+  maxCandidates?: number;     // Max text regions (default: 1000)
+  useDbDilation?: boolean;    // Use morphological dilation (default: false)
+  
+  // CTC decoding for recognition
+  ctcBlankIndex?: number;     // Blank token index (default: 0)
+  removeBlank?: boolean;      // Remove blank tokens (default: true)
+  removeDuplicate?: boolean;  // Remove duplicates (default: true)
 }
 ```
 
@@ -355,44 +467,75 @@ interface PerformanceMetrics {
 
 ## React Components
 
-### OCRInterface
+### RapidOCRInterface
 
-Complete OCR interface component.
+A complete OCR interface component with UI controls and language selection.
 
 ```tsx
-import { OCRInterface } from 'client-side-ocr/react';
+import { RapidOCRInterface } from 'client-side-ocr/react';
 
-interface OCRInterfaceProps {
-  defaultModel?: string;         // Default model to use
-  onResult?: (result: OCRResult) => void; // Result callback
-  onError?: (error: Error) => void;       // Error callback
-  theme?: 'light' | 'dark';      // UI theme
-  showSettings?: boolean;        // Show settings panel
-  showDebug?: boolean;           // Show debug information
-  allowModelSwitch?: boolean;    // Allow model switching
-  customStyles?: React.CSSProperties; // Custom styles
+interface RapidOCRInterfaceProps {
+  defaultLanguage?: LangType;
+  modelVersion?: ModelVersion;
+  modelType?: ModelType;
+  onResult?: (result: RapidOCRResult) => void;
+  onError?: (error: Error) => void;
+  enableWordSegmentation?: boolean;
+  enableTextClassification?: boolean;
+  showSettings?: boolean;
+  showModelDownload?: boolean;
+  theme?: 'light' | 'dark';
 }
 ```
 
 **Example:**
 ```tsx
 function App() {
-  const handleResult = (result: OCRResult) => {
-    console.log('OCR Result:', result.text);
-  };
-
   return (
-    <OCRInterface
-      defaultModel="ppocr-v5"
-      onResult={handleResult}
-      theme="light"
+    <RapidOCRInterface
+      defaultLanguage="en"
+      modelVersion="PP-OCRv4"
+      onResult={(result) => {
+        console.log('Extracted text:', result.text);
+        console.log('Confidence:', result.confidence);
+        console.log('Word boxes:', result.wordBoxes);
+      }}
+      onError={(error) => {
+        console.error('OCR error:', error);
+      }}
+      enableWordSegmentation={true}
       showSettings={true}
     />
   );
 }
 ```
 
-### useOCR Hook
+### LanguageSelector
+
+Standalone language selection component.
+
+```tsx
+interface LanguageSelectorProps {
+  value: LangType;
+  onChange: (language: LangType) => void;
+  disabled?: boolean;
+  showFlags?: boolean;
+}
+```
+
+### ModelDownloadProgress
+
+Progress indicator for model downloads.
+
+```tsx
+interface ModelDownloadProgressProps {
+  language: LangType;
+  progress: DownloadProgress;
+  onCancel?: () => void;
+}
+```
+
+### useOCR Hook [Legacy]
 
 React hook for OCR functionality.
 
@@ -434,6 +577,93 @@ function OCRComponent() {
 }
 ```
 
+## Language Support
+
+### Supported Languages
+
+RapidOCR v2.0 supports 14+ languages:
+
+| Language | Code | PP-OCRv4 | PP-OCRv5 | Script Type |
+|----------|------|----------|------------|-------------|
+| Chinese | ch | ✅ | ✅ | Simplified & Traditional |
+| English | en | ✅ | ✅ | Latin |
+| French | fr | ✅ | ❌ | Latin |
+| German | de | ✅ | ❌ | Latin |
+| Japanese | ja | ✅ | ✅ | Mixed (Hiragana, Katakana, Kanji) |
+| Korean | ko | ✅ | ✅ | Hangul |
+| Russian | ru | ✅ | ❌ | Cyrillic |
+| Portuguese | pt | ✅ | ❌ | Latin |
+| Spanish | es | ✅ | ❌ | Latin |
+| Italian | it | ✅ | ❌ | Latin |
+| Indonesian | id | ✅ | ❌ | Latin |
+| Vietnamese | vi | ✅ | ❌ | Latin with tone marks |
+| Persian | fa | ✅ | ❌ | Arabic (RTL) |
+| Kannada | ka | ✅ | ❌ | Indic |
+
+### Language-Specific Configuration
+
+```typescript
+// Japanese with specific settings
+const ocrJapanese = createRapidOCREngine({
+  language: 'ja',
+  modelVersion: 'PP-OCRv4',
+  preprocessConfig: {
+    recImageShape: [3, 48, 480]  // Wider for complex characters
+  }
+});
+
+// Persian with RTL support
+const ocrPersian = createRapidOCREngine({
+  language: 'fa',
+  postprocessConfig: {
+    reverseText: true  // Handle right-to-left text
+  }
+});
+```
+
+## Processing Pipeline
+
+### RapidOCR Processing Stages
+
+```mermaid
+graph LR
+    A[Input Image] --> B[Detection Preprocessing]
+    B --> C[Text Detection]
+    C --> D[Text Classification]
+    D --> E[Recognition Preprocessing]
+    E --> F[Text Recognition]
+    F --> G[CTC Decoding]
+    G --> H[Word Segmentation]
+    H --> I[Final Output]
+```
+
+### Stage Details
+
+1. **Detection Preprocessing**
+   - ImageNet normalization: mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+   - Dynamic resolution adjustment (multiples of 32)
+
+2. **Text Detection**
+   - DB (Differentiable Binarization) algorithm
+   - Unclip ratio for text region expansion
+
+3. **Text Classification**
+   - 180° rotation detection
+   - Batch processing with aspect ratio sorting
+
+4. **Recognition Preprocessing**
+   - Standard normalization: (pixel/255 - 0.5) / 0.5
+   - Dynamic width calculation
+
+5. **CTC Decoding**
+   - Duplicate removal
+   - Blank token handling
+   - Embedded dictionary support
+
+6. **Word Segmentation**
+   - Separates Chinese characters from English/numbers
+   - Position tracking for each word
+
 ## Configuration Options
 
 ### Global Configuration
@@ -473,21 +703,22 @@ setDebugMode(true, (level, message, data) => {
 ### Error Types
 
 ```typescript
-class OCRError extends Error {
-  code: string;
+class RapidOCRError extends Error {
+  code: ErrorCode;
   details?: any;
 }
 
-// Error codes
-const ErrorCodes = {
-  INITIALIZATION_FAILED: 'INIT_FAILED',
-  MODEL_LOAD_FAILED: 'MODEL_LOAD_FAILED',
-  PROCESSING_FAILED: 'PROCESSING_FAILED',
-  INVALID_INPUT: 'INVALID_INPUT',
-  WORKER_ERROR: 'WORKER_ERROR',
-  MEMORY_ERROR: 'MEMORY_ERROR',
-  BROWSER_NOT_SUPPORTED: 'BROWSER_NOT_SUPPORTED'
-};
+enum ErrorCode {
+  MODEL_LOAD_FAILED = 'MODEL_LOAD_FAILED',
+  MODEL_NOT_FOUND = 'MODEL_NOT_FOUND',
+  INVALID_INPUT = 'INVALID_INPUT',
+  PROCESSING_FAILED = 'PROCESSING_FAILED',
+  WORKER_ERROR = 'WORKER_ERROR',
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  UNSUPPORTED_LANGUAGE = 'UNSUPPORTED_LANGUAGE',
+  DOWNLOAD_FAILED = 'DOWNLOAD_FAILED',
+  BROWSER_NOT_SUPPORTED = 'BROWSER_NOT_SUPPORTED'
+}
 ```
 
 ### Error Handling Example
@@ -496,16 +727,20 @@ const ErrorCodes = {
 try {
   const result = await ocr.processImage(file);
 } catch (error) {
-  if (error instanceof OCRError) {
+  if (error instanceof RapidOCRError) {
     switch (error.code) {
-      case 'MEMORY_ERROR':
-        console.error('Out of memory, try a smaller image');
+      case ErrorCode.MODEL_NOT_FOUND:
+        console.log('Downloading models...');
+        await ocr.downloadModels();
         break;
-      case 'MODEL_LOAD_FAILED':
-        console.error('Failed to load model, check network connection');
+      case ErrorCode.UNSUPPORTED_LANGUAGE:
+        console.error('Language not supported:', error.details);
+        break;
+      case ErrorCode.DOWNLOAD_FAILED:
+        console.error('Model download failed, check network');
         break;
       default:
-        console.error('OCR failed:', error.message);
+        console.error('OCR error:', error.message);
     }
   }
 }
@@ -516,47 +751,67 @@ try {
 ### Event Types
 
 ```typescript
-interface OCREvents {
-  'modelLoading': { modelId: string };
-  'modelLoaded': { modelId: string; loadTime: number };
+interface RapidOCREvents {
+  'modelDownloadStart': { language: string; models: string[] };
+  'modelDownloadProgress': { progress: DownloadProgress };
+  'modelDownloadComplete': { language: string };
+  'modelLoading': { stage: 'detection' | 'classification' | 'recognition' };
+  'modelLoaded': { stage: string; loadTime: number };
   'processingStart': { timestamp: number };
-  'processingProgress': { progress: number };
-  'processingComplete': { result: OCRResult };
-  'error': { error: OCRError };
+  'processingStage': { stage: string; progress: number };
+  'processingComplete': { result: RapidOCRResult };
+  'error': { error: RapidOCRError };
 }
 ```
 
 ### Event Handling
 
 ```typescript
-import { createOCREngine } from 'client-side-ocr';
+const ocr = createRapidOCREngine({ language: 'en' });
 
-const ocr = createOCREngine();
-
-// Listen to events
-ocr.on('modelLoading', ({ modelId }) => {
-  console.log(`Loading model: ${modelId}`);
+// Model download events
+ocr.on('modelDownloadProgress', ({ progress }) => {
+  console.log(`Download: ${progress.percent}%`);
 });
 
-ocr.on('processingProgress', ({ progress }) => {
-  console.log(`Progress: ${progress}%`);
+// Processing stage events
+ocr.on('processingStage', ({ stage, progress }) => {
+  console.log(`${stage}: ${progress}%`);
 });
 
-ocr.on('error', ({ error }) => {
-  console.error('OCR Error:', error);
+// Complete processing
+ocr.on('processingComplete', ({ result }) => {
+  console.log('Text:', result.text);
+  console.log('Processing time:', result.processingTime);
 });
-
-// Remove listener
-const handler = ({ result }) => console.log(result);
-ocr.on('processingComplete', handler);
-ocr.off('processingComplete', handler);
 ```
 
 ## Utilities
 
+### Model Management
+
+```typescript
+import { ModelCache } from 'client-side-ocr/utils';
+
+// Check cached models
+const cache = new ModelCache();
+const cachedModels = await cache.listCachedModels();
+console.log('Cached models:', cachedModels);
+
+// Clear specific language models
+await cache.clearLanguage('en');
+
+// Clear all cached models
+await cache.clearAll();
+
+// Get cache size
+const size = await cache.getCacheSize();
+console.log(`Cache size: ${size.totalMB}MB`);
+```
+
 ### checkCompatibility()
 
-Check browser compatibility.
+Check browser compatibility with enhanced feature detection.
 
 ```typescript
 import { checkCompatibility } from 'client-side-ocr';
@@ -564,9 +819,15 @@ import { checkCompatibility } from 'client-side-ocr';
 const compatibility = await checkCompatibility();
 
 if (!compatibility.supported) {
-  console.error('Browser not supported:', compatibility.missingFeatures);
+  console.error('Missing features:', compatibility.missingFeatures);
 } else {
-  console.log('Browser features:', compatibility.features);
+  console.log('Supported features:', {
+    webgl: compatibility.features.webgl,
+    wasm: compatibility.features.wasm,
+    webWorkers: compatibility.features.webWorkers,
+    offscreenCanvas: compatibility.features.offscreenCanvas,
+    sharedArrayBuffer: compatibility.features.sharedArrayBuffer
+  });
 }
 ```
 
@@ -621,13 +882,31 @@ const result = await ocr.processImage(region);
 
 ## Advanced Usage
 
-### Custom Worker Configuration
+### Custom Model URLs
 
 ```typescript
-const ocr = createOCREngine({
-  workerPath: '/custom/worker.js',
-  wasmPaths: {
-    'ort-wasm-simd.wasm': '/custom/wasm/ort-wasm-simd.wasm'
+const ocr = createRapidOCREngine({
+  language: 'en',
+  modelUrls: {
+    detection: 'https://your-cdn.com/models/det.onnx',
+    recognition: 'https://your-cdn.com/models/rec.onnx',
+    classification: 'https://your-cdn.com/models/cls.onnx',
+    dictionary: 'https://your-cdn.com/models/dict.txt'
+  }
+});
+```
+
+### Web Worker Configuration
+
+```typescript
+const ocr = createRapidOCREngine({
+  language: 'en',
+  workerConfig: {
+    detectionWorkerUrl: '/workers/detection.worker.js',
+    recognitionWorkerUrl: '/workers/recognition.worker.js',
+    classificationWorkerUrl: '/workers/classification.worker.js',
+    terminateOnIdle: true,
+    idleTimeout: 30000 // 30 seconds
   }
 });
 ```
@@ -635,19 +914,26 @@ const ocr = createOCREngine({
 ### Batch Processing
 
 ```typescript
-import { createBatchProcessor } from 'client-side-ocr';
+// Process multiple images efficiently
+const images = [file1, file2, file3];
+const results = await Promise.all(
+  images.map(img => ocr.processImage(img))
+);
 
-const processor = createBatchProcessor({
-  concurrency: 2,
-  model: 'ppocr-v5'
-});
-
-const files = [file1, file2, file3];
-const results = await processor.processFiles(files, {
-  onProgress: (completed, total) => {
-    console.log(`Progress: ${completed}/${total}`);
+// Or with shared configuration
+const batchResults = await ocr.processBatch(images, {
+  enableWordSegmentation: true,
+  preprocessConfig: {
+    detectImageNetNorm: true,
+    recStandardNorm: true
   }
 });
+
+// Batch processing with progress
+for (let i = 0; i < images.length; i++) {
+  const result = await ocr.processImage(images[i]);
+  console.log(`Progress: ${i + 1}/${images.length}`);
+}
 ```
 
 ### Stream Processing
@@ -737,35 +1023,82 @@ ocr.clearCache(); // Clear all
 
 ## Migration Guide
 
-### From Tesseract.js
+### From v1.x to v2.0
 
 ```typescript
-// Tesseract.js
-const worker = await Tesseract.createWorker('eng');
-const { data: { text } } = await worker.recognize(image);
-
-// Client-Side OCR
+// v1.x
 const ocr = createOCREngine();
+await ocr.initialize('ppocr-v4');
+const result = await ocr.processImage(file);
+
+// v2.0
+const ocr = createRapidOCREngine({
+  language: 'en',
+  modelVersion: 'PP-OCRv4'
+});
 await ocr.initialize();
-const { text } = await ocr.processImage(image);
+const result = await ocr.processImage(file);
 ```
 
-### From Server-Side OCR
+### Component Migration
+
+```tsx
+// v1.x
+import { OCRInterface } from 'client-side-ocr/react';
+<OCRInterface />
+
+// v2.0
+import { RapidOCRInterface } from 'client-side-ocr/react';
+<RapidOCRInterface defaultLanguage="en" />
+```
+
+### Model Name Mapping
+
+| v1.x | v2.0 Configuration |
+|------|-------------------|
+| `ppocr-v4` | `{ modelVersion: 'PP-OCRv4', modelType: 'mobile' }` |
+| `ppocr-v5` | `{ modelVersion: 'PP-OCRv5', modelType: 'mobile' }` |
+| `en-mobile` | `{ language: 'en', modelType: 'mobile' }` |
+| `ppocr-v2-server` | `{ modelVersion: 'PP-OCRv4', modelType: 'server' }` |
+
+For a complete migration guide, see [MIGRATION.md](./MIGRATION.md).
+
+## Performance Tips
+
+### 1. Model Selection
+
+- **Mobile models**: Fast, smaller size, good for real-time processing
+- **Server models**: Higher accuracy, larger size, better for batch processing
+
+### 2. Image Preprocessing
 
 ```typescript
-// Before: Server API
-const formData = new FormData();
-formData.append('image', file);
-const response = await fetch('/api/ocr', { 
-  method: 'POST', 
-  body: formData 
-});
-const { text } = await response.json();
+// Resize large images for better performance
+const maxSize = 1920;
+const resizedImage = await resizeImage(originalImage, maxSize);
 
-// After: Client-Side OCR
-const ocr = createOCREngine();
-await ocr.initialize();
-const { text } = await ocr.processImage(file);
+// Use appropriate preprocessing
+const result = await ocr.processImage(resizedImage, {
+  preprocessConfig: {
+    detectLimitSideLen: 1280  // Limit detection resolution
+  }
+});
+```
+
+### 3. Memory Management
+
+```typescript
+// Process and release immediately
+for (const image of largeImageSet) {
+  const result = await ocr.processImage(image);
+  await processResult(result);
+  
+  // Force garbage collection hint
+  if (global.gc) global.gc();
+}
+
+// Destroy engine when done
+ocr.destroy();
 ```
 
 ## Troubleshooting
@@ -796,16 +1129,22 @@ const { text } = await ocr.processImage(file);
 
 ## Best Practices
 
-1. **Initialize once, reuse often**
+1. **Choose the right language and model**
    ```typescript
-   // Good: Initialize once
-   const ocr = createOCREngine();
-   await ocr.initialize();
-   
-   // Process multiple images
-   for (const file of files) {
-     await ocr.processImage(file);
-   }
+   // For documents with mixed languages
+   const ocr = createRapidOCREngine({
+     language: 'en',  // Primary language
+     modelVersion: 'PP-OCRv4'  // Better multi-language support
+   });
+   ```
+
+2. **Enable features based on content**
+   ```typescript
+   // For scanned documents
+   const result = await ocr.processImage(file, {
+     enableTextClassification: true,  // Fix upside-down text
+     enableWordSegmentation: true,     // Better for mixed languages
+   });
    ```
 
 2. **Handle errors gracefully**
@@ -818,15 +1157,17 @@ const { text } = await ocr.processImage(file);
    }
    ```
 
-3. **Optimize for performance**
+3. **Monitor model downloads**
    ```typescript
-   // Preload models
-   await ocr.initialize();
+   const ocr = createRapidOCREngine({
+     language: 'ja',
+     onDownloadProgress: (progress) => {
+       updateProgressBar(progress.percent);
+     }
+   });
    
-   // Process in parallel
-   const results = await Promise.all(
-     files.map(file => ocr.processImage(file))
-   );
+   // Pre-download for offline use
+   await ocr.downloadModels();
    ```
 
 ## License

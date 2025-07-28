@@ -1,0 +1,58 @@
+# Source files (only publish built files)
+src/
+*.ts
+!*.d.ts
+
+# Config files
+tsconfig*.json
+vite.config*.ts
+eslint.config.js
+
+# Development files
+dev.log
+preview.log
+*.sh
+
+# Documentation source
+documentation/
+docs/
+public/
+
+# Examples and scripts
+examples/
+scripts/
+
+# Test files
+test-*.png
+test-*.txt
+*.test.ts
+*.spec.ts
+
+# Git and CI
+.github/
+.git/
+.gitignore
+
+# Build artifacts we don't want
+dist/*.html
+dist/sw.js
+dist/workbox-*.js
+dist/registerSW.js
+dist/manifest.webmanifest
+dist/models/
+dist/pwa-*.png
+dist/vite.svg
+
+# IDE
+.vscode/
+.idea/
+
+# Logs and temp files
+*.log
+node_modules/
+.DS_Store
+
+# Project specific
+DEPLOYMENT.md
+RAPIDOCR_FEATURE_IMPLEMENTATION_PLAN.md
+fix-*.sh

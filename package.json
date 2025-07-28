@@ -1,9 +1,9 @@
 {
   "name": "client-side-ocr",
   "private": false,
-  "version": "1.1.19",
+  "version": "1.0.0",
   "type": "module",
-  "description": "High-performance client-side OCR with ONNX Runtime and PaddleOCR models. Process text from images entirely in the browser.",
+  "description": "High-performance client-side OCR with ONNX Runtime, RapidOCR integration, and 14+ language support. Process text from images entirely in the browser with state-of-the-art accuracy.",
   "author": {
     "name": "Sivasubramanian Ramanathan",
     "email": "sivasub987@gmail.com",
@@ -21,16 +21,22 @@
     "ocr",
     "onnx",
     "onnxruntime",
+    "rapidocr",
     "paddleocr",
     "client-side",
     "browser",
     "text-recognition",
     "text-detection",
     "image-processing",
+    "multi-language",
+    "chinese-ocr",
+    "japanese-ocr",
+    "korean-ocr",
     "pwa",
-    "tesseract",
     "typescript",
-    "react"
+    "react",
+    "ctc-decoding",
+    "db-algorithm"
   ],
   "license": "MIT",
   "main": "./dist/index.js",
@@ -68,7 +74,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "prepublishOnly": "npm run build:lib",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "deploy": "npm run build && gh-pages -d dist",
+    "release": "npm run build:lib && npm publish"
   },
   "dependencies": {
     "@mantine/code-highlight": "^8.2.1",
@@ -77,6 +85,7 @@
     "@mantine/hooks": "^8.2.1",
     "@mantine/notifications": "^8.2.1",
     "@tabler/icons-react": "^3.34.1",
+    "@techstark/opencv-js": "^4.11.0-release.1",
     "onnxruntime-web": "^1.22.0",
     "pdfjs-dist": "^5.3.93",
     "react": "^19.1.0",

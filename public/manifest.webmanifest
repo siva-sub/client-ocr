@@ -1,0 +1,83 @@
+{
+  "name": "Client-Side OCR - Powerful Text Recognition",
+  "short_name": "Client OCR",
+  "description": "Client-side OCR with RapidOCR - Support for 14+ languages including Tamil. Process images and PDFs directly in your browser.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0969ff",
+  "orientation": "any",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/home-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Home Screen - Mobile"
+    },
+    {
+      "src": "/screenshots/ocr-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "OCR Result - Mobile"
+    },
+    {
+      "src": "/screenshots/home-desktop.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Home Screen - Desktop"
+    }
+  ],
+  "share_target": {
+    "action": "/",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        {
+          "name": "image",
+          "accept": ["image/*", "application/pdf"]
+        }
+      ]
+    }
+  },
+  "launch_handler": {
+    "client_mode": ["focus-existing", "auto"]
+  },
+  "edge_side_panel": {
+    "preferred_width": 480
+  },
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "shortcuts": [
+    {
+      "name": "New OCR Scan",
+      "short_name": "New Scan",
+      "description": "Start a new OCR scan",
+      "url": "/?action=new",
+      "icons": [
+        {
+          "src": "/pwa-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}
