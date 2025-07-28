@@ -208,15 +208,12 @@ function preprocessForRecognition(
   // Calculate target width while maintaining aspect ratio
   let targetWidth = Math.round(width * scale)
   
-  // Ensure width is at least 4 pixels and divisible by 4 for some models
-  targetWidth = Math.max(targetWidth, 4)
-  targetWidth = Math.ceil(targetWidth / 4) * 4
+  // Ensure minimum width like ppu-paddle-ocr
+  targetWidth = Math.max(targetWidth, 8)
   
-  // Maximum width constraint (optional, depends on model)
-  const maxWidth = 320
-  if (targetWidth > maxWidth) {
-    targetWidth = maxWidth
-  }
+  // Don't limit maximum width - maintain aspect ratio
+  
+  console.log(`Recognition preprocessing: input ${width}x${height} → target ${targetWidth}x${targetHeight} (scale: ${scale.toFixed(3)})`)
   
   // Create canvas for resizing
   const canvas = new OffscreenCanvas(targetWidth, targetHeight)
@@ -344,6 +341,8 @@ function decodeOutput(output: ort.InferenceSession.OnnxValueMapType): { text: st
     console.log('Full decoded values:', decoded)
     console.log('Dictionary size:', charDict.length)
     console.log('Dictionary preview:', charDict.slice(0, 10))
+    console.log('Tensor shape:', shape)
+    console.log('Output shape interpretation: seqLen:', seqLen, 'vocabSize:', vocabSize, 'isTransposed:', isTransposed)
     
     // Log specific index mappings for debugging
     if (decoded.length > 0 && charDict.length > 0) {
