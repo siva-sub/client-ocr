@@ -37,21 +37,9 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
             // Analyze dictionary format and model type
             analyzeDictionaryFormat(lines, data.dictPath)
             
-            // Process dictionary based on detected format
-            if ((self as any).dictFormat === 'blank-first') {
-              // Dictionary has blank line first (1-based indexing)
-              charDict = lines
-            } else if ((self as any).dictFormat === 'standard') {
-              // Standard format - ensure blank token at index 0
-              if (lines.length > 0 && lines[0] === '') {
-                charDict = lines
-              } else {
-                charDict = ['', ...lines.filter(line => line.trim() !== '')]
-              }
-            } else {
-              // ASCII output format - dictionary is for reference only
-              charDict = lines
-            }
+            // All models use the dictionary as-is (0-based indexing)
+            // The dictionary files already have blank as the first line
+            charDict = lines
             
             console.log(`Loaded dictionary: ${charDict.length} chars, format: ${(self as any).dictFormat}, model: ${(self as any).modelType}`)
           } catch (error) {
@@ -120,47 +108,36 @@ function analyzeDictionaryFormat(lines: string[], dictPath: string): void {
   // Check model type from path
   if (dictPath.includes('en-mobile')) {
     self.modelType = 'en-mobile'
-    // en-mobile uses blank-first format (1-based indexing)
-    self.dictFormat = 'blank-first'
-    return
+  } else if (dictPath.includes('en-ppocr')) {
+    self.modelType = 'en-ppocr'
   } else if (dictPath.includes('ppocrv5')) {
     self.modelType = 'ppocrv5'
   } else if (dictPath.includes('ppocrv4')) {
     self.modelType = 'ppocrv4'
   } else if (dictPath.includes('ppocrv2')) {
     self.modelType = 'ppocrv2'
-  } else if (dictPath.includes('en-ppocr')) {
-    self.modelType = 'en-ppocr'
   }
   
-  // Analyze dictionary content
-  if (lines.length === 0) {
-    self.dictFormat = 'standard'
-    return
-  }
+  // All models use 0-based indexing with blank at index 0
+  // The dictionary files have blank as first line (line 1 = index 0)
+  self.dictFormat = 'standard'
   
-  // Check if first line is blank (indicates 1-based indexing)
-  if (lines[0] === '' || lines[0] === ' ') {
-    self.dictFormat = 'blank-first'
-    return
-  }
+  // Log dictionary characteristics for debugging
+  console.log(`Dictionary analysis for ${self.modelType}:`)
+  console.log(`  Total lines: ${lines.length}`)
+  console.log(`  First line empty: ${lines[0] === ''}`)
+  console.log(`  First 5 non-empty chars: ${lines.slice(1, 6).join(', ')}`)
   
-  // Check if it's a standard PaddleOCR en_dict.txt format
-  // (starts with digits 0-9, then letters)
-  if (lines.length > 10 && lines[0] === '0' && lines[9] === '9') {
-    self.dictFormat = 'standard'
-    return
-  }
-  
-  // Check if it's a multilingual dictionary (contains non-ASCII characters)
-  const hasNonAscii = lines.some(line => 
-    line.length > 0 && [...line].some(char => char.charCodeAt(0) > 127)
-  )
-  
-  if (hasNonAscii || lines.length > 1000) {
-    self.dictFormat = 'blank-first' // Most multilingual dicts use 1-based
-  } else {
-    self.dictFormat = 'standard'
+  // Verify English dictionary structure
+  if (self.modelType === 'en-mobile' || self.modelType === 'en-ppocr') {
+    // These should have blank, then 0-9, then symbols, then A-Z, then a-z
+    const expectedStart = ['', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+    const matches = expectedStart.every((expected, idx) => 
+      idx >= lines.length || lines[idx] === expected
+    )
+    if (!matches) {
+      console.warn('English dictionary does not match expected format!')
+    }
   }
 }
 
@@ -366,35 +343,36 @@ function decodeOutput(output: ort.InferenceSession.OnnxValueMapType): { text: st
   if (decoded.length > 0 && !((self as any).hasLoggedDecode)) {
     console.log('Model type:', modelType, 'Dict format:', dictFormat)
     console.log('Full decoded values:', decoded)
+    console.log('Dictionary size:', charDict.length)
     console.log('Dictionary preview:', charDict.slice(0, 10))
-    console.log('Expected indices for "Hello": H=25, e=54, l=61, l=61, o=64')
+    
+    // Log specific index mappings for debugging
+    if (decoded.length > 0 && charDict.length > 0) {
+      const sampleIndices = decoded.slice(0, 5)
+      console.log('Sample index mappings:')
+      sampleIndices.forEach(idx => {
+        if (idx < charDict.length) {
+          console.log(`  Index ${idx} → "${charDict[idx]}"`)
+        }
+      })
+    }
     ;(self as any).hasLoggedDecode = true
   }
   
   for (let i = 0; i < decoded.length; i++) {
     const value = decoded[i]
     
-    // Handle different output formats
-    if (dictFormat === 'blank-first') {
-      // 1-based indexing (blank line at index 0)
-      // The model outputs indices where 0 = blank, 1 = first char, etc.
-      if (value > 0 && value < charDict.length) {
-        const char = charDict[value]
-        if (char && char !== '') {
-          text += char
-          totalConfidence += confidences[i]
-        }
+    // All models use 0-based indexing with blank at index 0
+    // The confusion comes from dictionary file line numbers (1-based) vs array indices (0-based)
+    if (value >= 0 && value < charDict.length) {
+      const char = charDict[value]
+      // Skip blank token (index 0) and empty strings
+      if (value !== 0 && char && char !== '' && char !== '　') { // Also skip full-width space
+        text += char
+        totalConfidence += confidences[i]
       }
     } else {
-      // Standard format (0-based indexing)
-      if (value >= 0 && value < charDict.length) {
-        const char = charDict[value]
-        // Skip blank token (usually at index 0)
-        if (char && char !== '' && char !== '<blank>') {
-          text += char
-          totalConfidence += confidences[i]
-        }
-      }
+      console.warn(`Index ${value} out of bounds for dictionary size ${charDict.length}`)
     }
   }
   
