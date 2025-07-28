@@ -303,14 +303,31 @@ function decodeOutput(output: ort.InferenceSession.OnnxValueMapType): { text: st
   let text = ''
   let totalConfidence = 0
   
+  // Debug: Log first few character indices
+  if (decoded.length > 0) {
+    console.log('First few decoded indices:', decoded.slice(0, 5))
+    console.log('Dictionary sample:', charDict.slice(0, 10))
+  }
+  
   for (let i = 0; i < decoded.length; i++) {
     const charIdx = decoded[i]
     
-    // For multilingual dictionaries and en-mobile, we need to apply an offset
-    // This is because the model might be outputting 1-based indices
+    // Check if this is the en-mobile model which outputs ASCII codes
     let dictIdx = charIdx
-    if ((self as any).isMultilingual || (self as any).usesOneBasedIndexing) {
-      // These models use 1-based indexing
+    if ((self as any).usesOneBasedIndexing) {
+      // The en-mobile model seems to output ASCII codes directly
+      // Let's check if the value is in ASCII range
+      if (charIdx >= 32 && charIdx <= 126) {
+        // This is an ASCII code, convert to character
+        text += String.fromCharCode(charIdx)
+        totalConfidence += confidences[i]
+        continue
+      } else {
+        // Fall back to dictionary lookup with offset
+        dictIdx = charIdx - 1
+      }
+    } else if ((self as any).isMultilingual) {
+      // Multilingual models use 1-based indexing
       dictIdx = charIdx - 1
     }
     
