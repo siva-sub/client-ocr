@@ -16,10 +16,19 @@ export interface PreprocessingOptions {
 }
 
 export class ImagePreprocessor {
+  private static isOpenCVReady(): boolean {
+    return typeof cv !== 'undefined' && cv && cv.Mat && typeof cv.matFromImageData === 'function'
+  }
+
   static async preprocess(
     imageData: ImageData,
     options: PreprocessingOptions = {}
   ): Promise<ImageData> {
+    // If OpenCV is not ready, return original image
+    if (!this.isOpenCVReady()) {
+      console.warn('OpenCV.js is not loaded. Skipping preprocessing.')
+      return imageData
+    }
     const {
       grayscale = true,
       threshold = false,
@@ -227,6 +236,12 @@ export class ImagePreprocessor {
     processed: ImageData
     appliedOptions: PreprocessingOptions
   }> {
+    // If OpenCV is not ready, return original image
+    if (!this.isOpenCVReady()) {
+      console.warn('OpenCV.js is not loaded. Skipping auto preprocessing.')
+      return { processed: imageData, appliedOptions: {} }
+    }
+
     // Analyze image to determine best preprocessing options
     const analysis = this.analyzeImage(imageData)
     
@@ -254,6 +269,18 @@ export class ImagePreprocessor {
     needsThreshold: boolean
     optimalThreshold: number
   } {
+    // Safety check - should not reach here if OpenCV is not ready
+    if (!this.isOpenCVReady()) {
+      return {
+        isNoisy: false,
+        lowContrast: false,
+        isBlurry: false,
+        isSkewed: false,
+        needsThreshold: false,
+        optimalThreshold: 127
+      }
+    }
+
     const src = cv.matFromImageData(imageData)
     let gray = src
     

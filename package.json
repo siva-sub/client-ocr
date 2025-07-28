@@ -1,7 +1,7 @@
 {
   "name": "client-side-ocr",
   "private": false,
-  "version": "1.2.3",
+  "version": "1.2.4",
   "type": "module",
   "description": "High-performance client-side OCR with ONNX Runtime, RapidOCR integration, and 14+ language support. Process text from images entirely in the browser with state-of-the-art accuracy.",
   "author": {
