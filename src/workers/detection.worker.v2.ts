@@ -167,23 +167,17 @@ function preprocessForDetection(
   const channels = 3
   const normalized = new Float32Array(channels * height * width)
   
-  // Apply ImageNet normalization (RapidOCR style)
-  const { mean, std, scale } = config
-  
+  // Apply simple normalization for detection model
+  // RapidOCR/PaddleOCR uses: (img / 255.0 - 0.5) / 0.5 = img / 127.5 - 1.0
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = (y * width + x) * 4
       const pixelIdx = y * width + x
       
-      // Get RGB values and scale
-      const r = imageData[idx] * (scale || 1/255)
-      const g = imageData[idx + 1] * (scale || 1/255)
-      const b = imageData[idx + 2] * (scale || 1/255)
-      
-      // Apply normalization: (value - mean) / std
-      normalized[pixelIdx] = (r - mean[0]) / std[0] // R channel
-      normalized[height * width + pixelIdx] = (g - mean[1]) / std[1] // G channel
-      normalized[2 * height * width + pixelIdx] = (b - mean[2]) / std[2] // B channel
+      // Normalize to [-1, 1] range
+      normalized[pixelIdx] = imageData[idx] / 127.5 - 1.0  // R
+      normalized[height * width + pixelIdx] = imageData[idx + 1] / 127.5 - 1.0  // G
+      normalized[2 * height * width + pixelIdx] = imageData[idx + 2] / 127.5 - 1.0  // B
     }
   }
   
