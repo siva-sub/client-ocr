@@ -20,7 +20,8 @@ let config: TableDetectionConfig | null = null
 let charList: string[] = []
 
 // Initialize ONNX Runtime
-ort.env.wasm.wasmPaths = '/'
+import { configureONNXRuntime } from '../core/onnx-config'
+configureONNXRuntime()
 
 self.onmessage = async (event: MessageEvent<TableWorkerMessage>) => {
   const { type } = event.data

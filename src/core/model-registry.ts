@@ -18,8 +18,10 @@ export interface RegisteredModel {
   metadata?: Record<string, any>
 }
 
-// Local model paths (relative to project root)
-const LOCAL_MODEL_BASE = '/models'
+// Local model paths - use GitHub Pages URL in production
+const LOCAL_MODEL_BASE = import.meta.env.PROD 
+  ? 'https://siva-sub.github.io/client-ocr/models'
+  : '/models'
 
 // Register all available models
 export const MODEL_REGISTRY: RegisteredModel[] = [

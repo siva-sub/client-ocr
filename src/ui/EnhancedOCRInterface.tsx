@@ -50,7 +50,7 @@ import { LanguageSelector } from './LanguageSelector'
 import { OCRProgress } from './OCRProgress'
 import { RapidOCREngine, type OCREngineOptions, type OCRProgress as OCRProgressType } from '../core/rapid-ocr-engine'
 import type { LangType, OCRVersion, ModelType } from '../core/ocr-config'
-import { getModelsByCategory } from '../core/model-registry'
+import { getModelsByCategory, getModelById } from '../core/model-registry'
 import { TABLE_MODELS } from '../core/table-models'
 import { LAYOUT_MODELS } from '../core/layout-models'
 import { detectLayout } from '../services/layoutDetection'
@@ -132,6 +132,24 @@ export function EnhancedOCRInterface() {
   
   const initializeEngine = useCallback(async () => {
     try {
+      // Check if we should use local models
+      const selectedDetModel = getModelById(ocrDetModel)
+      const selectedRecModel = getModelById(ocrRecModel)
+      
+      if (selectedDetModel?.source.type === 'local' || selectedRecModel?.source.type === 'local') {
+        // Use local models - for now, show a notification
+        notifications.show({
+          id: 'init',
+          title: 'Loading Local Models',
+          message: `Loading ${selectedDetModel?.name} and ${selectedRecModel?.name}...`,
+          loading: true,
+          autoClose: false
+        })
+        
+        // TODO: Implement local model loading
+        // For now, we'll fall back to the standard engine
+      }
+
       notifications.show({
         id: 'init',
         title: 'Initializing OCR Engine',
@@ -192,7 +210,7 @@ export function EnhancedOCRInterface() {
       })
       console.error('Engine initialization error:', error)
     }
-  }, [language, ocrVersion, modelType, useDetection, useClassification])
+  }, [language, ocrVersion, modelType, useDetection, useClassification, ocrDetModel, ocrRecModel])
 
   const handleImageSelect = useCallback((file: File) => {
     setSelectedImage(file)

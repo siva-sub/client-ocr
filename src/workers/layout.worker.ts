@@ -13,7 +13,8 @@ let config: LayoutDetectionConfig | null = null
 let modelInfo: typeof LAYOUT_MODELS[keyof typeof LAYOUT_MODELS] | null = null
 
 // Initialize ONNX Runtime
-ort.env.wasm.wasmPaths = '/'
+import { configureONNXRuntime } from '../core/onnx-config'
+configureONNXRuntime()
 
 self.onmessage = async (event: MessageEvent<LayoutWorkerMessage>) => {
   const { type } = event.data
