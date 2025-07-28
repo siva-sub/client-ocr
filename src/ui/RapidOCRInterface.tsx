@@ -1,8 +1,8 @@
 import type { OCRResult } from '../types/ocr.types'
 import { useState, useCallback } from 'react'
-import { Paper, Stack, Tabs, Alert, Select, Group, Text, Badge, Switch, Divider } from '@mantine/core'
+import { Paper, Stack, Tabs, Alert, Select, Group, Text, Badge, Switch, Divider, Title, Button, Tooltip, Card, Anchor, Container } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { IconPhoto, IconTextRecognition, IconSettings, IconInfoCircle, IconLanguage, IconBrain } from '@tabler/icons-react'
+import { IconPhoto, IconTextRecognition, IconSettings, IconInfoCircle, IconLanguage, IconBrain, IconBrandGithub, IconDownload, IconSparkles, IconLicense } from '@tabler/icons-react'
 import { ImageUpload } from './ImageUpload'
 import { PdfUpload } from './PdfUpload'
 import { ResultViewer } from './ResultViewer'
@@ -268,8 +268,55 @@ export function RapidOCRInterface() {
   }
 
   return (
-    <Stack gap="md">
-      <PwaInstallPrompt />
+    <Container size="xl">
+      <Stack gap="md">
+        <PwaInstallPrompt />
+        
+        {/* Header Section */}
+        <Paper p="lg" withBorder>
+          <Group justify="space-between">
+            <div>
+              <Group gap="md">
+                <Title order={2} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <IconSparkles size={32} stroke={1.5} style={{ color: 'var(--mantine-color-blue-6)' }} />
+                  Client-Side OCR
+                </Title>
+                <Badge variant="light" color="blue" size="lg">
+                  v1.2.6
+                </Badge>
+              </Group>
+              <Text size="sm" c="dimmed" mt="xs">
+                High-performance text recognition directly in your browser - no server needed!
+              </Text>
+            </div>
+            <Group>
+              <Tooltip label="View on GitHub">
+                <Button
+                  component="a"
+                  href="https://github.com/siva-sub/client-ocr"
+                  target="_blank"
+                  variant="default"
+                  leftSection={<IconBrandGithub size={18} />}
+                >
+                  GitHub
+                </Button>
+              </Tooltip>
+              <Tooltip label="Install as PWA">
+                <Button
+                  variant="light"
+                  leftSection={<IconDownload size={18} />}
+                  onClick={() => {
+                    // PWA install will be handled by PwaInstallPrompt
+                    const event = new Event('pwa-install-prompt')
+                    window.dispatchEvent(event)
+                  }}
+                >
+                  Install App
+                </Button>
+              </Tooltip>
+            </Group>
+          </Group>
+        </Paper>
       
       <Tabs defaultValue="image">
         <Tabs.List>
@@ -303,12 +350,15 @@ export function RapidOCRInterface() {
 
         <Tabs.Panel value="settings" pt="md">
           <Stack gap="md">
-            <Paper p="md" withBorder>
+            <Paper p="lg" withBorder radius="md" style={{ borderColor: 'var(--mantine-color-gray-3)' }}>
               <Stack gap="md">
                 <div>
                   <Group mb="md" justify="space-between">
-                    <Text fw={500} size="lg">OCR Configuration</Text>
-                    <Badge leftSection={<IconBrain size={14} />}>
+                    <div>
+                      <Text fw={600} size="lg">OCR Configuration</Text>
+                      <Text size="sm" c="dimmed">Customize your OCR engine settings</Text>
+                    </div>
+                    <Badge leftSection={<IconBrain size={14} />} size="lg" variant="gradient" gradient={{ from: 'blue', to: 'cyan' }}>
                       RapidOCR Engine
                     </Badge>
                   </Group>
@@ -349,16 +399,8 @@ export function RapidOCRInterface() {
                         }
                       }}
                       data={[
-                        { 
-                          value: 'mobile', 
-                          label: 'Mobile (Fast)',
-                          group: 'Performance'
-                        },
-                        { 
-                          value: 'server', 
-                          label: 'Server (Accurate)',
-                          group: 'Performance'
-                        }
+                        { value: 'mobile', label: 'Mobile (Fast)' },
+                        { value: 'server', label: 'Server (Accurate)' }
                       ]}
                     />
                   </Stack>
@@ -391,37 +433,64 @@ export function RapidOCRInterface() {
                   </Stack>
                 </div>
                 
-                <Alert icon={<IconInfoCircle size={16} />} variant="light">
-                  <Text size="sm" fw={500} mb={4}>Model Information</Text>
-                  <Text size="sm">
-                    • <strong>Languages</strong>: RapidOCR supports 14+ languages with specialized models
-                  </Text>
-                  <Text size="sm">
-                    • <strong>PP-OCRv4</strong>: Stable version with wide language support
-                  </Text>
-                  <Text size="sm">
-                    • <strong>PP-OCRv5</strong>: Latest version with improved accuracy (limited languages)
-                  </Text>
-                  <Text size="sm" mt={4}>
-                    • <strong>Mobile Models</strong>: ~10MB, optimized for speed
-                  </Text>
-                  <Text size="sm">
-                    • <strong>Server Models</strong>: ~100MB, optimized for accuracy
-                  </Text>
-                </Alert>
+                <Card withBorder radius="md" style={{ borderColor: 'var(--mantine-color-blue-2)', backgroundColor: 'var(--mantine-color-blue-0)' }}>
+                  <Group gap="xs" mb="sm">
+                    <IconInfoCircle size={20} style={{ color: 'var(--mantine-color-blue-6)' }} />
+                    <Text size="sm" fw={600} c="blue.6">Model Information</Text>
+                  </Group>
+                  <Stack gap="xs">
+                    <Text size="sm">
+                      🌍 <strong>Languages</strong>: RapidOCR supports 14+ languages with specialized models
+                    </Text>
+                    <Text size="sm">
+                      📦 <strong>PP-OCRv4</strong>: Stable version with wide language support and proven reliability
+                    </Text>
+                    <Text size="sm">
+                      ✨ <strong>PP-OCRv5</strong>: Latest version with improved accuracy, optimized for modern text
+                    </Text>
+                    <Divider my="xs" />
+                    <Text size="sm">
+                      ⚡ <strong>Mobile Models</strong>: ~10MB size, 100-200ms processing time
+                    </Text>
+                    <Text size="sm">
+                      🎯 <strong>Server Models</strong>: ~100MB size, 200-500ms processing time, higher accuracy
+                    </Text>
+                  </Stack>
+                </Card>
                 
                 {!isInitialized && (
-                  <Alert icon={<IconLanguage size={16} />} color="yellow" variant="light">
+                  <Alert icon={<IconLanguage size={16} />} color="yellow" variant="light" radius="md">
                     <Text size="sm">
                       Engine not initialized. It will be initialized when you process an image.
                     </Text>
                   </Alert>
                 )}
+                
+                {/* Footer info */}
+                <Card withBorder radius="md" style={{ borderColor: 'var(--mantine-color-gray-3)' }}>
+                  <Stack gap="sm">
+                    <Group gap="xs">
+                      <IconLicense size={20} style={{ color: 'var(--mantine-color-gray-6)' }} />
+                      <Text size="sm" fw={500}>Open Source & Privacy First</Text>
+                    </Group>
+                    <Text size="sm" c="dimmed">
+                      All processing happens locally in your browser. No data is sent to any server.
+                      Models are cached for offline use.
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Built with RapidOCR/PaddleOCR models • Licensed under MIT •{' '}
+                      <Anchor href="https://github.com/siva-sub/client-ocr" target="_blank" size="xs">
+                        Contribute on GitHub
+                      </Anchor>
+                    </Text>
+                  </Stack>
+                </Card>
               </Stack>
             </Paper>
           </Stack>
         </Tabs.Panel>
       </Tabs>
     </Stack>
+    </Container>
   )
 }

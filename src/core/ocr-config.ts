@@ -81,9 +81,9 @@ export const DEFAULT_OCR_CONFIG: OCRConfig = {
     ocr_version: 'PP-OCRv4',
     limit_side_len: 736,
     limit_type: 'min',
-    std: [0.229, 0.224, 0.225], // ImageNet normalization
-    mean: [0.485, 0.456, 0.406],
-    scale: 0.00392156862745098, // 1/255
+    std: [0.5, 0.5, 0.5], // RapidOCR normalization
+    mean: [0.5, 0.5, 0.5],
+    scale: 1.0 / 255.0, // 1/255
     thresh: 0.3,
     box_thresh: 0.5,
     max_candidates: 1000,

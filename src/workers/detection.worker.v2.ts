@@ -29,9 +29,9 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
           ocr_version: 'PP-OCRv4',
           limit_side_len: 736,
           limit_type: 'min',
-          std: [0.229, 0.224, 0.225],
-          mean: [0.485, 0.456, 0.406],
-          scale: 0.00392156862745098,
+          std: [0.5, 0.5, 0.5],
+          mean: [0.5, 0.5, 0.5],
+          scale: 1.0 / 255.0,
           thresh: 0.3,
           box_thresh: 0.5,
           max_candidates: 1000,
@@ -172,17 +172,24 @@ function preprocessForDetection(
   const channels = 3
   const normalized = new Float32Array(channels * height * width)
   
-  // Apply simple normalization for detection model
-  // RapidOCR/PaddleOCR uses: (img / 255.0 - 0.5) / 0.5 = img / 127.5 - 1.0
+  // Apply RapidOCR normalization matching Python implementation
+  // Using mean=[0.5, 0.5, 0.5] and std=[0.5, 0.5, 0.5]
+  // Formula: (img * scale - mean) / std where scale = 1/255.0
+  const scale = 1.0 / 255.0
+  const mean = config.mean || [0.5, 0.5, 0.5]
+  const std = config.std || [0.5, 0.5, 0.5]
+  
+  console.log(`Detection preprocessing: using mean=${mean}, std=${std}, scale=${scale}`)
+  
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = (y * width + x) * 4
       const pixelIdx = y * width + x
       
-      // Normalize to [-1, 1] range
-      normalized[pixelIdx] = imageData[idx] / 127.5 - 1.0  // R
-      normalized[height * width + pixelIdx] = imageData[idx + 1] / 127.5 - 1.0  // G
-      normalized[2 * height * width + pixelIdx] = imageData[idx + 2] / 127.5 - 1.0  // B
+      // Normalize using RapidOCR formula: (img * scale - mean) / std
+      normalized[pixelIdx] = (imageData[idx] * scale - mean[0]) / std[0]  // R
+      normalized[height * width + pixelIdx] = (imageData[idx + 1] * scale - mean[1]) / std[1]  // G
+      normalized[2 * height * width + pixelIdx] = (imageData[idx + 2] * scale - mean[2]) / std[2]  // B
     }
   }
   
@@ -208,10 +215,25 @@ function postprocessDetection(
   console.log('Detection raw output sample:', outputData.slice(0, 10))
   
   // Apply threshold and find contours
-  const [_, _channels, h, w] = shape
+  // Detection output shape can be [batch, 1, h, w] or [batch, h, w]
+  let h: number, w: number
+  if (shape.length === 4) {
+    const [_, _channels, height, width] = shape
+    h = height
+    w = width
+  } else if (shape.length === 3) {
+    const [_, height, width] = shape
+    h = height
+    w = width
+  } else {
+    console.error('Unexpected detection output shape:', shape)
+    return []
+  }
+  
   const bitmap = new Uint8Array(h * w)
   
-  // Create binary map
+  // Create binary map from sigmoid output
+  // The output is already sigmoid activated, so values are between 0 and 1
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = y * w + x
@@ -219,6 +241,10 @@ function postprocessDetection(
       bitmap[idx] = prob > config.thresh ? 255 : 0
     }
   }
+  
+  // Count pixels above threshold for debugging
+  const pixelsAboveThreshold = bitmap.filter(v => v === 255).length
+  console.log(`Detection bitmap: ${pixelsAboveThreshold} pixels above threshold (${(pixelsAboveThreshold / bitmap.length * 100).toFixed(2)}%)`)
   
   // Apply dilation if enabled
   if (config.use_dilation) {
@@ -250,21 +276,29 @@ function postprocessDetection(
 }
 
 function dilate(bitmap: Uint8Array, width: number, height: number): void {
-  // Simple 3x3 dilation
+  // Apply dilation using 2x2 kernel as in RapidOCR
+  const kernel = [[1, 1], [1, 1]]
+  const kh = kernel.length
+  const kw = kernel[0].length
   const temp = new Uint8Array(bitmap)
   
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
       const idx = y * width + x
       
-      // Check if any neighbor is white
+      // Check if any neighbor in kernel is white
       let hasWhite = false
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const nIdx = (y + dy) * width + (x + dx)
-          if (temp[nIdx] === 255) {
-            hasWhite = true
-            break
+      for (let ky = 0; ky < kh; ky++) {
+        for (let kx = 0; kx < kw; kx++) {
+          const ny = y + ky - Math.floor(kh / 2)
+          const nx = x + kx - Math.floor(kw / 2)
+          
+          if (ny >= 0 && ny < height && nx >= 0 && nx < width) {
+            const nIdx = ny * width + nx
+            if (temp[nIdx] === 255 && kernel[ky][kx] === 1) {
+              hasWhite = true
+              break
+            }
           }
         }
         if (hasWhite) break
@@ -299,7 +333,7 @@ function findTextBoxes(
         const component = findConnectedComponent(bitmap, visited, x, y, bitmapWidth, bitmapHeight)
         componentsFound++
         
-        if (component.pixels > 10) { // Minimum size threshold
+        if (component.pixels > 25) { // Minimum size threshold - increased to match RapidOCR
           componentsAboveMinSize++
           // Calculate bounding box
           const scaleX = targetWidth / bitmapWidth
