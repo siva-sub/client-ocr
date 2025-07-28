@@ -71,13 +71,16 @@ export class RapidOCREngine {
     
     // Prepend base path
     if (this.modelPaths.det) {
-      this.modelPaths.det = `${modelBasePath}/${this.modelPaths.det}`
+      const detPath = typeof this.modelPaths.det === 'string' ? this.modelPaths.det : this.modelPaths.det.url
+      this.modelPaths.det = `${modelBasePath}/${detPath}`
     }
     if (this.modelPaths.rec) {
-      this.modelPaths.rec = `${modelBasePath}/${this.modelPaths.rec}`
+      const recPath = typeof this.modelPaths.rec === 'string' ? this.modelPaths.rec : this.modelPaths.rec.url
+      this.modelPaths.rec = `${modelBasePath}/${recPath}`
     }
     if (this.modelPaths.cls) {
-      this.modelPaths.cls = `${modelBasePath}/${this.modelPaths.cls}`
+      const clsPath = typeof this.modelPaths.cls === 'string' ? this.modelPaths.cls : this.modelPaths.cls.url
+      this.modelPaths.cls = `${modelBasePath}/${clsPath}`
     }
     if (this.modelPaths.dict) {
       this.modelPaths.dict = `${modelBasePath}/${this.modelPaths.dict}`
