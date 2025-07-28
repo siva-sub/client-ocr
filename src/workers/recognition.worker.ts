@@ -120,7 +120,8 @@ function analyzeDictionaryFormat(lines: string[], dictPath: string): void {
   // Check model type from path
   if (dictPath.includes('en-mobile')) {
     self.modelType = 'en-mobile'
-    self.dictFormat = 'ascii-output' // Special case - outputs ASCII codes
+    // en-mobile uses blank-first format (1-based indexing)
+    self.dictFormat = 'blank-first'
     return
   } else if (dictPath.includes('ppocrv5')) {
     self.modelType = 'ppocrv5'
@@ -366,17 +367,9 @@ function decodeOutput(output: ort.InferenceSession.OnnxValueMapType): { text: st
     const value = decoded[i]
     
     // Handle different output formats
-    if (dictFormat === 'ascii-output') {
-      // en-mobile: outputs ASCII codes directly
-      if (value >= 32 && value <= 126) {
-        text += String.fromCharCode(value)
-        totalConfidence += confidences[i]
-      } else if (value === 0) {
-        // Skip blank token
-        continue
-      }
-    } else if (dictFormat === 'blank-first') {
+    if (dictFormat === 'blank-first') {
       // 1-based indexing (blank line at index 0)
+      // The model outputs indices where 0 = blank, 1 = first char, etc.
       if (value > 0 && value < charDict.length) {
         const char = charDict[value]
         if (char && char !== '') {
