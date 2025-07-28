@@ -1,7 +1,7 @@
 {
   "name": "client-side-ocr",
   "private": false,
-  "version": "1.1.13",
+  "version": "1.1.14",
   "type": "module",
   "description": "High-performance client-side OCR with ONNX Runtime and PaddleOCR models. Process text from images entirely in the browser.",
   "author": {

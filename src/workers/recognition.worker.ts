@@ -265,6 +265,7 @@ function preprocessForRecognition(
   
   // Normalize for recognition model (different from detection!)
   // Recognition uses: (pixel_value / 255.0 - 0.5) / 0.5
+  // Important: Convert to grayscale first (using only R channel for all RGB)
   const normalized = new Float32Array(3 * targetHeight * targetWidth)
   
   for (let y = 0; y < targetHeight; y++) {
@@ -272,10 +273,14 @@ function preprocessForRecognition(
       const idx = (y * targetWidth + x) * 4
       const pixelIdx = y * targetWidth + x
       
-      // Normalize each channel
-      normalized[pixelIdx] = (resizedData[idx] / 255.0 - 0.5) / 0.5 // R
-      normalized[targetHeight * targetWidth + pixelIdx] = (resizedData[idx + 1] / 255.0 - 0.5) / 0.5 // G
-      normalized[2 * targetHeight * targetWidth + pixelIdx] = (resizedData[idx + 2] / 255.0 - 0.5) / 0.5 // B
+      // Use only the red channel value for grayscale (PaddleOCR convention)
+      const grayValue = resizedData[idx] / 255.0
+      const normalizedValue = (grayValue - 0.5) / 0.5
+      
+      // Apply the same grayscale value to all three channels
+      normalized[pixelIdx] = normalizedValue // R
+      normalized[targetHeight * targetWidth + pixelIdx] = normalizedValue // G
+      normalized[2 * targetHeight * targetWidth + pixelIdx] = normalizedValue // B
     }
   }
   
