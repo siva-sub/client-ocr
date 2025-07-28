@@ -169,6 +169,27 @@ export const MODEL_CONFIGS: ModelConfig[] = [
     accuracy: 'medium',
     speed: 'very-fast',
     languages: ['en']
+  },
+  {
+    id: 'en-ppu-v4',
+    name: 'English PPU v4 (Official)',
+    description: 'Official English PP-OCRv4 mobile model from PaddleOCR',
+    type: 'mobile',
+    version: 'v4',
+    paths: {
+      detection: getModelPath('/models/en-mobile/det.onnx'),
+      recognition: getModelPath('/models/en-mobile/rec-ppu.onnx'),
+      classification: getModelPath('/models/en-mobile/cls.onnx'),
+      dictionary: getModelPath('/models/en-mobile/dict.txt')
+    },
+    sizes: {
+      detection: '4.7MB',
+      recognition: '7.4MB',
+      classification: '583KB'
+    },
+    accuracy: 'high',
+    speed: 'fast',
+    languages: ['en']
   }
 ]
 

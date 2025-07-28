@@ -249,15 +249,14 @@ function preprocessForRecognition(
       const idx = (y * targetWidth + x) * 4
       const pixelIdx = y * targetWidth + x
       
-      // Process each channel separately (matching OnnxOCR)
-      const r = resizedData[idx] / 255.0
-      const g = resizedData[idx + 1] / 255.0
-      const b = resizedData[idx + 2] / 255.0
+      // Use grayscale (red channel only) like ppu-paddle-ocr
+      const grayValue = resizedData[idx] / 255.0
+      const normalizedValue = (grayValue - 0.5) / 0.5
       
-      // Apply normalization: (value - 0.5) / 0.5
-      normalized[pixelIdx] = (r - 0.5) / 0.5 // R channel
-      normalized[targetHeight * targetWidth + pixelIdx] = (g - 0.5) / 0.5 // G channel
-      normalized[2 * targetHeight * targetWidth + pixelIdx] = (b - 0.5) / 0.5 // B channel
+      // Fill all three channels with the same normalized grayscale value
+      normalized[pixelIdx] = normalizedValue // R channel
+      normalized[targetHeight * targetWidth + pixelIdx] = normalizedValue // G channel
+      normalized[2 * targetHeight * targetWidth + pixelIdx] = normalizedValue // B channel
     }
   }
   
@@ -366,8 +365,14 @@ function decodeOutput(output: ort.InferenceSession.OnnxValueMapType): { text: st
     // The confusion comes from dictionary file line numbers (1-based) vs array indices (0-based)
     if (value >= 0 && value < charDict.length) {
       const char = charDict[value]
-      // Skip blank token (index 0) and empty strings
-      if (value !== 0 && char && char !== '' && char !== '　') { // Also skip full-width space
+      
+      // Check if this is the last character in dictionary (space character)
+      if (value === charDict.length - 1) {
+        // In PaddleOCR dictionaries, the last character is often space
+        text += ' '
+        totalConfidence += confidences[i]
+      } else if (value !== 0 && char && char !== '' && char !== '　') {
+        // Skip blank token (index 0) and empty strings
         text += char
         totalConfidence += confidences[i]
       }
