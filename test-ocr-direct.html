@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Direct OCR Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    #output { white-space: pre-wrap; font-family: monospace; background: #f5f5f5; padding: 10px; margin-top: 20px; }
+    #result { margin-top: 20px; padding: 10px; background: #e0f0ff; }
+    .text-box { border: 2px solid red; position: absolute; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <h1>Direct OCR Test</h1>
+  <button id="test-english">Test English OCR</button>
+  <button id="test-chinese">Test Chinese OCR</button>
+  <button id="test-japanese">Test Japanese OCR</button>
+  
+  <div id="image-container" style="position: relative; margin-top: 20px;"></div>
+  <div id="result"></div>
+  <pre id="output"></pre>
+
+  <script type="module">
+    function log(msg) {
+      const output = document.getElementById('output');
+      output.textContent += `${new Date().toISOString().slice(11, 19)} ${msg}\n`;
+      console.log(msg);
+    }
+
+    // Test image data (Hello World OCR Test)
+    const testImageBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAABkCAYAAACoy2Z3AAAAAXNSR0IArs4c6QAACQNJREFUeF7t3U+IXFcdxvHnzJtks2hLXQiCgtCF4KILN1IXLlx0oZt2YXHhwkUhhYpQEARBqAuVIgiCIAiCIAiCIAiCIC5cuGjVRRcJgosENyLVRWJNJplz5L3JTJLJzPzuzLxz7p25v5PFTCbv3vee8/nc+TO/e09VVVUN8SCAAEIIBBDw
