@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate PWA Icons</title>
+</head>
+<body>
+    <h1>PWA Icon Generator</h1>
+    <canvas id="canvas"></canvas>
+    <script>
+        const sizes = [192, 512];
+        
+        sizes.forEach(size => {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            ctx.fillStyle = '#1976d2';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Document icon
+            const margin = size * 0.15;
+            const docWidth = size - (margin * 2);
+            const docHeight = size - (margin * 2);
+            
+            // White document
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(margin, margin, docWidth, docHeight);
+            
+            // Text lines
+            ctx.fillStyle = '#333333';
+            const lineHeight = size * 0.04;
+            const lineGap = size * 0.08;
+            const startY = margin + size * 0.2;
+            
+            for (let i = 0; i < 3; i++) {
+                const y = startY + (i * lineGap);
+                const lineWidth = docWidth * (0.8 - i * 0.1);
+                ctx.fillRect(margin + docWidth * 0.1, y, lineWidth, lineHeight);
+            }
+            
+            // OCR text
+            ctx.font = `bold ${size * 0.12}px Arial`;
+            ctx.fillStyle = '#1976d2';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('OCR', size / 2, size * 0.75);
+            
+            // Convert to blob and download
+            canvas.toBlob(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `pwa-${size}x${size}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+        });
+        
+        // Apple touch icon (180x180)
+        const appleCanvas = document.createElement('canvas');
+        appleCanvas.width = 180;
+        appleCanvas.height = 180;
+        const appleCtx = appleCanvas.getContext('2d');
+        
+        appleCtx.fillStyle = '#1976d2';
+        appleCtx.fillRect(0, 0, 180, 180);
+        
+        const appleMargin = 27;
+        appleCtx.fillStyle = '#FFFFFF';
+        appleCtx.fillRect(appleMargin, appleMargin, 126, 126);
+        
+        appleCtx.fillStyle = '#333333';
+        for (let i = 0; i < 3; i++) {
+            const y = 54 + (i * 14);
+            const lineWidth = 100 - (i * 12);
+            appleCtx.fillRect(40, y, lineWidth, 7);
+        }
+        
+        appleCtx.font = 'bold 22px Arial';
+        appleCtx.fillStyle = '#1976d2';
+        appleCtx.textAlign = 'center';
+        appleCtx.textBaseline = 'middle';
+        appleCtx.fillText('OCR', 90, 135);
+        
+        appleCanvas.toBlob(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'apple-touch-icon.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    </script>
+</body>
+</html>
