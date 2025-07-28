@@ -69,6 +69,9 @@ export class RapidOCREngine {
     // Get model paths
     this.modelPaths = getLanguageModelPaths(lang, version, modelType)
     
+    // Process model paths - store original model info for dictionary extraction
+    const originalRecModel = this.modelPaths.rec
+    
     // Prepend base path only for relative paths
     if (this.modelPaths.det) {
       const detPath = typeof this.modelPaths.det === 'string' ? this.modelPaths.det : this.modelPaths.det.url
@@ -85,8 +88,13 @@ export class RapidOCREngine {
       // Only prepend base path if it's not already a full URL
       this.modelPaths.cls = clsPath.startsWith('http') ? clsPath : `${modelBasePath}/${clsPath}`
     }
-    if (this.modelPaths.dict) {
-      // Dictionary paths are always relative
+    
+    // Handle dictionary path - extract from original rec model if available
+    if (originalRecModel && typeof originalRecModel === 'object' && originalRecModel.dictUrl) {
+      // Use the dictUrl from the model configuration
+      this.modelPaths.dict = originalRecModel.dictUrl
+    } else if (this.modelPaths.dict) {
+      // Fallback to legacy dictionary path
       this.modelPaths.dict = `${modelBasePath}/${this.modelPaths.dict}`
     }
     
