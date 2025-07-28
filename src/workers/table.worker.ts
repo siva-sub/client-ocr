@@ -20,12 +20,7 @@ let config: TableDetectionConfig | null = null
 let charList: string[] = []
 
 // Initialize ONNX Runtime
-ort.env.wasm.wasmPaths = {
-  'ort-wasm.wasm': '/ort-wasm.wasm',
-  'ort-wasm-simd.wasm': '/ort-wasm-simd.wasm',
-  'ort-wasm-threaded.wasm': '/ort-wasm-threaded.wasm',
-  'ort-wasm-simd-threaded.wasm': '/ort-wasm-simd-threaded.wasm'
-}
+ort.env.wasm.wasmPaths = '/'
 
 self.onmessage = async (event: MessageEvent<TableWorkerMessage>) => {
   const { type } = event.data
@@ -71,13 +66,8 @@ async function initializeModel(cfg: TableDetectionConfig) {
     console.log('Input names:', model.inputNames)
     console.log('Output names:', model.outputNames)
     
-    // Initialize character list from model metadata if available
-    if (model.metadata?.custom?.char_list) {
-      charList = JSON.parse(model.metadata.custom.char_list)
-    } else {
-      // Use default structure tokens
-      charList = TABLE_STRUCTURE_TOKENS
-    }
+    // Use default structure tokens
+    charList = TABLE_STRUCTURE_TOKENS
     
     self.postMessage({ type: 'initialized' })
   } catch (error) {

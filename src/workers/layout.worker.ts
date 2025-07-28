@@ -13,12 +13,7 @@ let config: LayoutDetectionConfig | null = null
 let modelInfo: typeof LAYOUT_MODELS[keyof typeof LAYOUT_MODELS] | null = null
 
 // Initialize ONNX Runtime
-ort.env.wasm.wasmPaths = {
-  'ort-wasm.wasm': '/ort-wasm.wasm',
-  'ort-wasm-simd.wasm': '/ort-wasm-simd.wasm',
-  'ort-wasm-threaded.wasm': '/ort-wasm-threaded.wasm',
-  'ort-wasm-simd-threaded.wasm': '/ort-wasm-simd-threaded.wasm'
-}
+ort.env.wasm.wasmPaths = '/'
 
 self.onmessage = async (event: MessageEvent<LayoutWorkerMessage>) => {
   const { type } = event.data
