@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Test OCR Image</title>
+</head>
+<body>
+    <canvas id="canvas" width="400" height="200"></canvas>
+    <br>
+    <button onclick="downloadImage()">Download test-ocr-image.png</button>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // White background
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, 400, 200);
+        
+        // Black text
+        ctx.fillStyle = 'black';
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Hello World', 200, 70);
+        ctx.fillText('OCR Test', 200, 130);
+        
+        function downloadImage() {
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'test-ocr-image.png';
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+        
+        // Auto download
+        downloadImage();
+    </script>
+</body>
+</html>
