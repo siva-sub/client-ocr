@@ -69,20 +69,24 @@ export class RapidOCREngine {
     // Get model paths
     this.modelPaths = getLanguageModelPaths(lang, version, modelType)
     
-    // Prepend base path
+    // Prepend base path only for relative paths
     if (this.modelPaths.det) {
       const detPath = typeof this.modelPaths.det === 'string' ? this.modelPaths.det : this.modelPaths.det.url
-      this.modelPaths.det = `${modelBasePath}/${detPath}`
+      // Only prepend base path if it's not already a full URL
+      this.modelPaths.det = detPath.startsWith('http') ? detPath : `${modelBasePath}/${detPath}`
     }
     if (this.modelPaths.rec) {
       const recPath = typeof this.modelPaths.rec === 'string' ? this.modelPaths.rec : this.modelPaths.rec.url
-      this.modelPaths.rec = `${modelBasePath}/${recPath}`
+      // Only prepend base path if it's not already a full URL
+      this.modelPaths.rec = recPath.startsWith('http') ? recPath : `${modelBasePath}/${recPath}`
     }
     if (this.modelPaths.cls) {
       const clsPath = typeof this.modelPaths.cls === 'string' ? this.modelPaths.cls : this.modelPaths.cls.url
-      this.modelPaths.cls = `${modelBasePath}/${clsPath}`
+      // Only prepend base path if it's not already a full URL
+      this.modelPaths.cls = clsPath.startsWith('http') ? clsPath : `${modelBasePath}/${clsPath}`
     }
     if (this.modelPaths.dict) {
+      // Dictionary paths are always relative
       this.modelPaths.dict = `${modelBasePath}/${this.modelPaths.dict}`
     }
     
