@@ -73,6 +73,11 @@ self.addEventListener('message', async (event: MessageEvent<WorkerMessage>) => {
         // Post-process
         const boxes = postprocessDetection(output, resizedWidth, resizedHeight, ratioH, ratioW)
         
+        console.log(`Detection found ${boxes.length} text boxes`)
+        if (boxes.length > 0) {
+          console.log('First box:', boxes[0])
+        }
+        
         self.postMessage({ type: 'RESULT', data: { boxes } })
       } catch (error) {
         self.postMessage({ type: 'ERROR', error: (error as Error).message })
@@ -200,6 +205,7 @@ function postprocessDetection(
   const shape = outputTensor.dims as number[]
   
   console.log('Detection output shape:', shape)
+  console.log('Detection raw output sample:', outputData.slice(0, 10))
   
   // Apply threshold and find contours
   const [_, _channels, h, w] = shape
@@ -281,6 +287,8 @@ function findTextBoxes(
   // Simple connected component analysis
   const visited = new Uint8Array(bitmap.length)
   const boxes: BoundingBox[] = []
+  let componentsFound = 0
+  let componentsAboveMinSize = 0
   
   for (let y = 0; y < bitmapHeight; y++) {
     for (let x = 0; x < bitmapWidth; x++) {
@@ -289,8 +297,10 @@ function findTextBoxes(
       if (bitmap[idx] === 255 && !visited[idx]) {
         // Find connected component
         const component = findConnectedComponent(bitmap, visited, x, y, bitmapWidth, bitmapHeight)
+        componentsFound++
         
         if (component.pixels > 10) { // Minimum size threshold
+          componentsAboveMinSize++
           // Calculate bounding box
           const scaleX = targetWidth / bitmapWidth
           const scaleY = targetHeight / bitmapHeight
@@ -327,6 +337,8 @@ function findTextBoxes(
       }
     }
   }
+  
+  console.log(`Connected components: found=${componentsFound}, aboveMinSize=${componentsAboveMinSize}, finalBoxes=${boxes.length}`)
   
   return boxes
 }
