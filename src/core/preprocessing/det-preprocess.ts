@@ -15,10 +15,10 @@ export class DetPreProcess {
   private scale: number;
 
   constructor(config: DetPreProcessConfig = {}) {
-    this.limitSideLen = config.limitSideLen ?? 736;
-    this.limitType = config.limitType ?? 'min';
-    this.mean = config.mean ?? [0.485, 0.456, 0.406]; // ImageNet mean
-    this.std = config.std ?? [0.229, 0.224, 0.225]; // ImageNet std
+    this.limitSideLen = config.limitSideLen ?? 960;
+    this.limitType = config.limitType ?? 'max';
+    this.mean = config.mean ?? [0.485, 0.456, 0.406]; // PaddleOCR ImageNet mean
+    this.std = config.std ?? [0.229, 0.224, 0.225]; // PaddleOCR ImageNet std
     this.scale = 1 / 255.0;
   }
 
@@ -82,8 +82,8 @@ export class DetPreProcess {
       }
     }
 
-    const resizeH = Math.round(h * ratio / 32) * 32;
-    const resizeW = Math.round(w * ratio / 32) * 32;
+    const resizeH = Math.ceil(h * ratio / 32) * 32;
+    const resizeW = Math.ceil(w * ratio / 32) * 32;
 
     if (resizeW <= 0 || resizeH <= 0) {
       return null;

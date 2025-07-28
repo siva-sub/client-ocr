@@ -19,6 +19,9 @@ export interface DetConfig {
   unclip_ratio: number
   use_dilation: boolean
   score_mode: 'fast' | 'accurate'
+  padding_vertical?: number
+  padding_horizontal?: number
+  minimum_area_threshold?: number
 }
 
 export interface ClsConfig {
@@ -82,14 +85,17 @@ export const DEFAULT_OCR_CONFIG: OCRConfig = {
     limit_side_len: 736,
     limit_type: 'min',
     std: [0.5, 0.5, 0.5], // RapidOCR normalization
-    mean: [0.5, 0.5, 0.5],
+    mean: [0.5, 0.5, 0.5], // RapidOCR normalization  
     scale: 1.0 / 255.0, // 1/255
     thresh: 0.3,
     box_thresh: 0.5,
     max_candidates: 1000,
     unclip_ratio: 1.6,
     use_dilation: true,
-    score_mode: 'fast'
+    score_mode: 'fast',
+    padding_vertical: 0.4,
+    padding_horizontal: 0.6,
+    minimum_area_threshold: 20
   },
   cls: {
     engine_type: 'onnxruntime',

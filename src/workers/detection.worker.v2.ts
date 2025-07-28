@@ -122,8 +122,8 @@ function resizeForDetection(
   let resizeW = Math.round(width * ratio)
   
   // Make dimensions divisible by 32 (required by detection model)
-  resizeH = Math.round(resizeH / 32) * 32
-  resizeW = Math.round(resizeW / 32) * 32
+  resizeH = Math.ceil(resizeH / 32) * 32
+  resizeW = Math.ceil(resizeW / 32) * 32
   
   // Ensure minimum size
   resizeH = Math.max(resizeH, 32)
@@ -172,21 +172,20 @@ function preprocessForDetection(
   const channels = 3
   const normalized = new Float32Array(channels * height * width)
   
-  // Apply RapidOCR normalization matching Python implementation
-  // Using mean=[0.5, 0.5, 0.5] and std=[0.5, 0.5, 0.5]
-  // Formula: (img * scale - mean) / std where scale = 1/255.0
-  const scale = 1.0 / 255.0
+  // RapidOCR uses [0.5, 0.5, 0.5] for both mean and std
+  // This transforms pixel values from [0, 255] to [-1, 1] range
+  const scale = config.scale || 1.0 / 255.0
   const mean = config.mean || [0.5, 0.5, 0.5]
   const std = config.std || [0.5, 0.5, 0.5]
   
-  console.log(`Detection preprocessing: using mean=${mean}, std=${std}, scale=${scale}`)
+  console.log(`Detection preprocessing: using scale=${scale}, mean=${mean}, std=${std}`)
   
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = (y * width + x) * 4
       const pixelIdx = y * width + x
       
-      // Normalize using RapidOCR formula: (img * scale - mean) / std
+      // RapidOCR normalization: (pixel * scale - mean) / std
       normalized[pixelIdx] = (imageData[idx] * scale - mean[0]) / std[0]  // R
       normalized[height * width + pixelIdx] = (imageData[idx + 1] * scale - mean[1]) / std[1]  // G
       normalized[2 * height * width + pixelIdx] = (imageData[idx + 2] * scale - mean[2]) / std[2]  // B
@@ -324,6 +323,10 @@ function findTextBoxes(
   let componentsFound = 0
   let componentsAboveMinSize = 0
   
+  const minAreaThreshold = config.minimum_area_threshold || 20
+  const paddingVertical = config.padding_vertical || 0.4
+  const paddingHorizontal = config.padding_horizontal || 0.6
+  
   for (let y = 0; y < bitmapHeight; y++) {
     for (let x = 0; x < bitmapWidth; x++) {
       const idx = y * bitmapWidth + x
@@ -333,39 +336,60 @@ function findTextBoxes(
         const component = findConnectedComponent(bitmap, visited, x, y, bitmapWidth, bitmapHeight)
         componentsFound++
         
-        if (component.pixels > 25) { // Minimum size threshold - increased to match RapidOCR
+        // Check minimum area on the bitmap
+        const componentArea = (component.maxX - component.minX) * (component.maxY - component.minY)
+        if (componentArea > minAreaThreshold) {
           componentsAboveMinSize++
-          // Calculate bounding box
+          
+          // Calculate bounding box with padding (similar to ppu-paddle-ocr)
+          const componentHeight = component.maxY - component.minY
+          const vertPadding = Math.round(componentHeight * paddingVertical)
+          const horizPadding = Math.round(componentHeight * paddingHorizontal)
+          
+          // Apply padding
+          let minX = component.minX - horizPadding
+          let maxX = component.maxX + horizPadding
+          let minY = component.minY - vertPadding
+          let maxY = component.maxY + vertPadding
+          
+          // Clip to bitmap bounds
+          minX = Math.max(0, minX)
+          maxX = Math.min(bitmapWidth - 1, maxX)
+          minY = Math.max(0, minY)
+          maxY = Math.min(bitmapHeight - 1, maxY)
+          
+          // Scale to target dimensions
           const scaleX = targetWidth / bitmapWidth
           const scaleY = targetHeight / bitmapHeight
           
-          // Expand box using unclip ratio
-          const expandX = (component.maxX - component.minX) * (config.unclip_ratio - 1) / 2
-          const expandY = (component.maxY - component.minY) * (config.unclip_ratio - 1) / 2
-          
           const box: BoundingBox = {
             topLeft: {
-              x: Math.max(0, (component.minX - expandX) * scaleX),
-              y: Math.max(0, (component.minY - expandY) * scaleY)
+              x: Math.round(minX * scaleX),
+              y: Math.round(minY * scaleY)
             },
             topRight: {
-              x: Math.min(targetWidth, (component.maxX + expandX) * scaleX),
-              y: Math.max(0, (component.minY - expandY) * scaleY)
+              x: Math.round(maxX * scaleX),
+              y: Math.round(minY * scaleY)
             },
             bottomRight: {
-              x: Math.min(targetWidth, (component.maxX + expandX) * scaleX),
-              y: Math.min(targetHeight, (component.maxY + expandY) * scaleY)
+              x: Math.round(maxX * scaleX),
+              y: Math.round(maxY * scaleY)
             },
             bottomLeft: {
-              x: Math.max(0, (component.minX - expandX) * scaleX),
-              y: Math.min(targetHeight, (component.maxY + expandY) * scaleY)
+              x: Math.round(minX * scaleX),
+              y: Math.round(maxY * scaleY)
             }
           }
           
           // Check box score
           const score = calculateBoxScore(bitmap, component, bitmapWidth)
           if (score > config.box_thresh) {
-            boxes.push(box)
+            // Final validation - ensure box has reasonable dimensions
+            const boxWidth = box.topRight.x - box.topLeft.x
+            const boxHeight = box.bottomLeft.y - box.topLeft.y
+            if (boxWidth > 5 && boxHeight > 5) {
+              boxes.push(box)
+            }
           }
         }
       }

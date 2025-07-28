@@ -383,7 +383,7 @@ export function OCRApp() {
               <Tooltip label="GitHub">
                 <ActionIcon
                   component="a"
-                  href="https://github.com/yourusername/client-side-ocr"
+                  href="https://github.com/siva-sub/client-ocr"
                   target="_blank"
                   variant="default"
                   size="lg"
@@ -502,9 +502,8 @@ export function OCRApp() {
             value={ocrVersion}
             onChange={(value) => setOcrVersion(value as OCRVersion)}
             data={[
-              { value: 'PP-OCRv4', label: 'PP-OCRv4 (Latest)' },
-              { value: 'PP-OCRv3', label: 'PP-OCRv3' },
-              { value: 'PP-OCRv2', label: 'PP-OCRv2' }
+              { value: 'PP-OCRv5', label: 'PP-OCRv5 (Latest)' },
+              { value: 'PP-OCRv4', label: 'PP-OCRv4' }
             ]}
           />
           

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Detection - Fixed</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .input-section, .output-section {
+            flex: 1;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            max-width: 100%;
+            display: block;
+            margin-top: 10px;
+        }
+        #log {
+            background: #f5f5f5;
+            padding: 10px;
+            margin-top: 20px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .box-info {
+            background: #e0f7fa;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Detection with PaddleOCR Normalization</h1>
+    
+    <div>
+        <input type="file" id="fileInput" accept="image/*">
+        <button id="detectBtn" disabled>Run Detection</button>
+    </div>
+    
+    <div class="container">
+        <div class="input-section">
+            <h3>Input Image</h3>
+            <canvas id="inputCanvas"></canvas>
+        </div>
+        <div class="output-section">
+            <h3>Detection Result</h3>
+            <canvas id="outputCanvas"></canvas>
+            <div id="boxInfo"></div>
+        </div>
+    </div>
+    
+    <div id="log"></div>
+    
+    <script type="module">
+        import { init as ortInit } from 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.3/dist/ort.min.js';
+        
+        let model = null;
+        const log = document.getElementById('log');
+        const fileInput = document.getElementById('fileInput');
+        const detectBtn = document.getElementById('detectBtn');
+        const inputCanvas = document.getElementById('inputCanvas');
+        const outputCanvas = document.getElementById('outputCanvas');
+        const boxInfo = document.getElementById('boxInfo');
+        
+        function logMessage(msg) {
+            const timestamp = new Date().toISOString().slice(11, 23);
+            log.innerHTML += `[${timestamp}] ${msg}\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        // Initialize ONNX Runtime
+        ortInit().then(ort => {
+            window.ort = ort;
+            logMessage('ONNX Runtime initialized');
+            loadModel();
+        });
+        
+        async function loadModel() {
+            try {
+                logMessage('Loading detection model...');
+                const session = await ort.InferenceSession.create('/models/en-mobile/det.onnx');
+                model = session;
+                logMessage('Model loaded successfully');
+                logMessage('Input names: ' + session.inputNames.join(', '));
+                logMessage('Output names: ' + session.outputNames.join(', '));
+                detectBtn.disabled = false;
+            } catch (error) {
+                logMessage('Error loading model: ' + error.message);
+            }
+        }
+        
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const img = new Image();
+            img.onload = () => {
+                inputCanvas.width = img.width;
+                inputCanvas.height = img.height;
+                const ctx = inputCanvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                logMessage(`Image loaded: ${img.width}x${img.height}`);
+            };
+            img.src = URL.createObjectURL(file);
+        });
+        
+        detectBtn.addEventListener('click', async () => {
+            if (!model) {
+                logMessage('Model not loaded');
+                return;
+            }
+            
+            const ctx = inputCanvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, inputCanvas.width, inputCanvas.height);
+            
+            try {
+                logMessage('Starting detection...');
+                const boxes = await runDetection(imageData);
+                drawBoxes(boxes);
+                displayBoxInfo(boxes);
+            } catch (error) {
+                logMessage('Detection error: ' + error.message);
+                console.error(error);
+            }
+        });
+        
+        async function runDetection(imageData) {
+            const { data, width, height } = imageData;
+            
+            // Resize configuration
+            const config = {
+                limit_side_len: 960,
+                limit_type: 'max',
+                mean: [0.485, 0.456, 0.406],
+                std: [0.229, 0.224, 0.225],
+                thresh: 0.3,
+                box_thresh: 0.5,
+                padding_vertical: 0.4,
+                padding_horizontal: 0.6,
+                minimum_area_threshold: 20
+            };
+            
+            // Resize image
+            const { resizedData, resizedWidth, resizedHeight, ratioH, ratioW } = resizeForDetection(
+                data, width, height, config
+            );
+            
+            // Preprocess
+            const inputTensor = preprocessForDetection(resizedData, resizedWidth, resizedHeight, config);
+            
+            // Run inference
+            const feeds = { [model.inputNames[0]]: inputTensor };
+            const output = await model.run(feeds);
+            
+            // Post-process
+            const boxes = postprocessDetection(output, resizedWidth, resizedHeight, ratioH, ratioW, width, height, config);
+            
+            return boxes;
+        }
+        
+        function resizeForDetection(imageData, width, height, config) {
+            let ratio = 1.0;
+            
+            if (config.limit_type === 'max') {
+                if (Math.max(height, width) > config.limit_side_len) {
+                    ratio = height > width 
+                        ? config.limit_side_len / height 
+                        : config.limit_side_len / width;
+                }
+            }
+            
+            let resizeH = Math.round(height * ratio);
+            let resizeW = Math.round(width * ratio);
+            
+            // Make dimensions divisible by 32
+            resizeH = Math.ceil(resizeH / 32) * 32;
+            resizeW = Math.ceil(resizeW / 32) * 32;
+            
+            // Ensure minimum size
+            resizeH = Math.max(resizeH, 32);
+            resizeW = Math.max(resizeW, 32);
+            
+            logMessage(`Resize: ${width}x${height} → ${resizeW}x${resizeH} (ratio: ${ratio.toFixed(3)})`);
+            
+            // Create canvas for resizing
+            const canvas = new OffscreenCanvas(resizeW, resizeH);
+            const ctx = canvas.getContext('2d');
+            
+            // Create ImageData from input
+            const inputImageData = new ImageData(
+                new Uint8ClampedArray(imageData),
+                width,
+                height
+            );
+            
+            // Create temporary canvas with original image
+            const tempCanvas = new OffscreenCanvas(width, height);
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.putImageData(inputImageData, 0, 0);
+            
+            // Resize
+            ctx.drawImage(tempCanvas, 0, 0, width, height, 0, 0, resizeW, resizeH);
+            
+            // Get resized data
+            const resizedImageData = ctx.getImageData(0, 0, resizeW, resizeH);
+            
+            return {
+                resizedData: resizedImageData.data,
+                resizedWidth: resizeW,
+                resizedHeight: resizeH,
+                ratioH: resizeH / height,
+                ratioW: resizeW / width
+            };
+        }
+        
+        function preprocessForDetection(imageData, width, height, config) {
+            const channels = 3;
+            const normalized = new Float32Array(channels * height * width);
+            
+            logMessage(`Preprocessing with mean=${config.mean}, std=${config.std}`);
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = (y * width + x) * 4;
+                    const pixelIdx = y * width + x;
+                    
+                    // PaddleOCR normalization: (pixel / 255.0 - mean) / std
+                    normalized[pixelIdx] = (imageData[idx] / 255.0 - config.mean[0]) / config.std[0];  // R
+                    normalized[height * width + pixelIdx] = (imageData[idx + 1] / 255.0 - config.mean[1]) / config.std[1];  // G
+                    normalized[2 * height * width + pixelIdx] = (imageData[idx + 2] / 255.0 - config.mean[2]) / config.std[2];  // B
+                }
+            }
+            
+            return new ort.Tensor('float32', normalized, [1, channels, height, width]);
+        }
+        
+        function postprocessDetection(output, resizedWidth, resizedHeight, ratioH, ratioW, originalWidth, originalHeight, config) {
+            const outputName = Object.keys(output)[0];
+            const outputTensor = output[outputName];
+            const outputData = outputTensor.data;
+            const shape = outputTensor.dims;
+            
+            logMessage(`Output shape: ${shape}`);
+            
+            let h, w;
+            if (shape.length === 4) {
+                [, , h, w] = shape;
+            } else if (shape.length === 3) {
+                [, h, w] = shape;
+            } else {
+                logMessage('Unexpected output shape');
+                return [];
+            }
+            
+            // Create binary map
+            const bitmap = new Uint8Array(h * w);
+            let pixelsAboveThreshold = 0;
+            
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const idx = y * w + x;
+                    const prob = outputData[idx];
+                    if (prob > config.thresh) {
+                        bitmap[idx] = 255;
+                        pixelsAboveThreshold++;
+                    }
+                }
+            }
+            
+            logMessage(`Pixels above threshold: ${pixelsAboveThreshold} (${(pixelsAboveThreshold / bitmap.length * 100).toFixed(2)}%)`);
+            
+            // Find boxes
+            const boxes = findTextBoxes(bitmap, w, h, resizedWidth, resizedHeight, config);
+            
+            // Convert back to original coordinates
+            return boxes.map(box => ({
+                x: Math.round(box.x / ratioW),
+                y: Math.round(box.y / ratioH),
+                width: Math.round(box.width / ratioW),
+                height: Math.round(box.height / ratioH)
+            }));
+        }
+        
+        function findTextBoxes(bitmap, bitmapWidth, bitmapHeight, targetWidth, targetHeight, config) {
+            const visited = new Uint8Array(bitmap.length);
+            const boxes = [];
+            
+            for (let y = 0; y < bitmapHeight; y++) {
+                for (let x = 0; x < bitmapWidth; x++) {
+                    const idx = y * bitmapWidth + x;
+                    
+                    if (bitmap[idx] === 255 && !visited[idx]) {
+                        const component = findConnectedComponent(bitmap, visited, x, y, bitmapWidth, bitmapHeight);
+                        
+                        const componentArea = (component.maxX - component.minX) * (component.maxY - component.minY);
+                        if (componentArea > config.minimum_area_threshold) {
+                            // Apply padding
+                            const componentHeight = component.maxY - component.minY;
+                            const vertPadding = Math.round(componentHeight * config.padding_vertical);
+                            const horizPadding = Math.round(componentHeight * config.padding_horizontal);
+                            
+                            let minX = Math.max(0, component.minX - horizPadding);
+                            let maxX = Math.min(bitmapWidth - 1, component.maxX + horizPadding);
+                            let minY = Math.max(0, component.minY - vertPadding);
+                            let maxY = Math.min(bitmapHeight - 1, component.maxY + vertPadding);
+                            
+                            // Scale to target dimensions
+                            const scaleX = targetWidth / bitmapWidth;
+                            const scaleY = targetHeight / bitmapHeight;
+                            
+                            const box = {
+                                x: Math.round(minX * scaleX),
+                                y: Math.round(minY * scaleY),
+                                width: Math.round((maxX - minX) * scaleX),
+                                height: Math.round((maxY - minY) * scaleY)
+                            };
+                            
+                            if (box.width > 5 && box.height > 5) {
+                                boxes.push(box);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            logMessage(`Found ${boxes.length} text boxes`);
+            return boxes;
+        }
+        
+        function findConnectedComponent(bitmap, visited, startX, startY, width, height) {
+            const component = {
+                minX: startX,
+                maxX: startX,
+                minY: startY,
+                maxY: startY,
+                pixels: 0
+            };
+            
+            const stack = [[startX, startY]];
+            
+            while (stack.length > 0) {
+                const [x, y] = stack.pop();
+                const idx = y * width + x;
+                
+                if (x < 0 || x >= width || y < 0 || y >= height || visited[idx] || bitmap[idx] !== 255) {
+                    continue;
+                }
+                
+                visited[idx] = 1;
+                component.pixels++;
+                component.minX = Math.min(component.minX, x);
+                component.maxX = Math.max(component.maxX, x);
+                component.minY = Math.min(component.minY, y);
+                component.maxY = Math.max(component.maxY, y);
+                
+                stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+            }
+            
+            return component;
+        }
+        
+        function drawBoxes(boxes) {
+            outputCanvas.width = inputCanvas.width;
+            outputCanvas.height = inputCanvas.height;
+            
+            const outCtx = outputCanvas.getContext('2d');
+            const inCtx = inputCanvas.getContext('2d');
+            
+            // Copy original image
+            outCtx.drawImage(inputCanvas, 0, 0);
+            
+            // Draw boxes
+            outCtx.strokeStyle = 'red';
+            outCtx.lineWidth = 2;
+            
+            boxes.forEach((box, i) => {
+                outCtx.strokeRect(box.x, box.y, box.width, box.height);
+                outCtx.fillStyle = 'red';
+                outCtx.fillText(i.toString(), box.x + 5, box.y + 15);
+            });
+        }
+        
+        function displayBoxInfo(boxes) {
+            boxInfo.innerHTML = `<h4>Detected ${boxes.length} boxes:</h4>`;
+            boxes.forEach((box, i) => {
+                boxInfo.innerHTML += `
+                    <div class="box-info">
+                        Box ${i}: x=${box.x}, y=${box.y}, w=${box.width}, h=${box.height}
+                    </div>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>
