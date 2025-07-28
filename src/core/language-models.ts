@@ -35,6 +35,7 @@ export interface LanguageModel {
 }
 
 const RAPIDOCR_BASE_URL = 'https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.3.0/onnx'
+const RAPIDOCR_V5_BASE_URL = 'https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/master/onnx'
 
 export const LANGUAGE_MODELS: Record<LangType, LanguageModel> = {
   'ch': {
@@ -54,11 +55,11 @@ export const LANGUAGE_MODELS: Record<LangType, LanguageModel> = {
         },
         'PP-OCRv5': {
           'mobile': {
-            url: `${RAPIDOCR_BASE_URL}/PP-OCRv5/det/ch_PP-OCRv5_mobile_det.onnx`,
+            url: `${RAPIDOCR_V5_BASE_URL}/PP-OCRv5/det/ch_PP-OCRv5_mobile_det.onnx`,
             sha256: '4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae'
           },
           'server': {
-            url: `${RAPIDOCR_BASE_URL}/PP-OCRv5/det/ch_PP-OCRv5_server_det.onnx`,
+            url: `${RAPIDOCR_V5_BASE_URL}/PP-OCRv5/det/ch_PP-OCRv5_server_det.onnx`,
             sha256: '0f8846b1d4bba223a2a2f9d9b44022fbc22cc019051a602b41a7fda9667e4cad'
           }
         }
@@ -78,12 +79,12 @@ export const LANGUAGE_MODELS: Record<LangType, LanguageModel> = {
         },
         'PP-OCRv5': {
           'mobile': {
-            url: `${RAPIDOCR_BASE_URL}/PP-OCRv5/rec/ch_PP-OCRv5_rec_mobile_infer.onnx`,
+            url: `${RAPIDOCR_V5_BASE_URL}/PP-OCRv5/rec/ch_PP-OCRv5_rec_mobile_infer.onnx`,
             sha256: '5825fc7ebf84ae7a412be049820b4d86d77620f204a041697b0494669b1742c5',
             dictUrl: 'https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.3.0/paddle/PP-OCRv5/rec/ch_PP-OCRv5_rec_mobile_infer/ppocrv5_dict.txt'
           },
           'server': {
-            url: `${RAPIDOCR_BASE_URL}/PP-OCRv5/rec/ch_PP-OCRv5_rec_server_infer.onnx`,
+            url: `${RAPIDOCR_V5_BASE_URL}/PP-OCRv5/rec/ch_PP-OCRv5_rec_server_infer.onnx`,
             sha256: 'e09385400eaaaef34ceff54aeb7c4f0f1fe014c27fa8b9905d4709b65746562a',
             dictUrl: 'https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.3.0/paddle/PP-OCRv5/rec/ch_PP-OCRv5_rec_server_infer/ppocrv5_dict.txt'
           }
@@ -207,7 +208,7 @@ export const LANGUAGE_MODELS: Record<LangType, LanguageModel> = {
         },
         'PP-OCRv5': {
           'mobile': {
-            url: `${RAPIDOCR_BASE_URL}/PP-OCRv5/rec/korean_PP-OCRv5_rec_mobile_infer.onnx`,
+            url: `${RAPIDOCR_V5_BASE_URL}/PP-OCRv5/rec/korean_PP-OCRv5_rec_mobile_infer.onnx`,
             sha256: 'cd6e2ea50f6943ca7271eb8c56a877a5a90720b7047fe9c41a2e541a25773c9b',
             dictUrl: 'https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.3.0/paddle/PP-OCRv5/rec/korean_PP-OCRv5_rec_mobile_infer/ppocrv5_korean_dict.txt'
           }
@@ -401,7 +402,7 @@ export const LANGUAGE_MODELS: Record<LangType, LanguageModel> = {
         },
         'PP-OCRv5': {
           'mobile': {
-            url: `${RAPIDOCR_BASE_URL}/PP-OCRv5/rec/latin_PP-OCRv5_rec_mobile_infer.onnx`,
+            url: `${RAPIDOCR_V5_BASE_URL}/PP-OCRv5/rec/latin_PP-OCRv5_rec_mobile_infer.onnx`,
             sha256: 'b20bd37c168a570f583afbc8cd7925603890efbcdc000a59e22c269d160b5f5a',
             dictUrl: 'https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.3.0/paddle/PP-OCRv5/rec/latin_PP-OCRv5_rec_mobile_infer/ppocrv5_latin_dict.txt'
           }
@@ -542,7 +543,7 @@ export const LANGUAGE_MODELS: Record<LangType, LanguageModel> = {
       rec: {
         'PP-OCRv5': {
           'mobile': {
-            url: `${RAPIDOCR_BASE_URL}/PP-OCRv5/rec/eslav_PP-OCRv5_rec_mobile_infer.onnx`,
+            url: `${RAPIDOCR_V5_BASE_URL}/PP-OCRv5/rec/eslav_PP-OCRv5_rec_mobile_infer.onnx`,
             sha256: '08705d6721849b1347d26187f15a5e362c431963a2a62bfff4feac578c489aab',
             dictUrl: 'https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.3.0/paddle/PP-OCRv5/rec/eslav_PP-OCRv5_rec_mobile_infer/ppocrv5_eslav_dict.txt'
           }
