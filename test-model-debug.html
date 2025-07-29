@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPU Model Debug Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        #testCanvas {
+            border: 1px solid #ccc;
+            background: white;
+            display: block;
+            margin: 20px auto;
+        }
+        #debugOutput {
+            background: #333;
+            color: #0f0;
+            padding: 20px;
+            margin: 20px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .test-section {
+            margin: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+        }
+        canvas {
+            margin: 10px;
+            border: 1px solid #999;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">PPU Model Debug Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Images</h2>
+        <div id="canvasContainer"></div>
+    </div>
+    
+    <div id="debugOutput">Debug output will appear here...</div>
+
+    <script>
+        const debugLog = (msg) => {
+            const output = document.getElementById('debugOutput');
+            output.textContent += msg + '\n';
+            output.scrollTop = output.scrollHeight;
+        };
+
+        // Create multiple test images with different characteristics
+        const tests = [
+            {
+                name: 'Original (White BG, Black Text)',
+                setup: (ctx, w, h) => {
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, w, h);
+                    ctx.fillStyle = 'black';
+                    ctx.font = 'bold 48px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('Hello World', w/2, h/2 - 30);
+                    ctx.fillText('OCR Test', w/2, h/2 + 30);
+                }
+            },
+            {
+                name: 'Inverted (Black BG, White Text)',
+                setup: (ctx, w, h) => {
+                    ctx.fillStyle = 'black';
+                    ctx.fillRect(0, 0, w, h);
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 48px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('Hello World', w/2, h/2 - 30);
+                    ctx.fillText('OCR Test', w/2, h/2 + 30);
+                }
+            },
+            {
+                name: 'Simple Text (ABC123)',
+                setup: (ctx, w, h) => {
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, w, h);
+                    ctx.fillStyle = 'black';
+                    ctx.font = 'bold 60px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('ABC123', w/2, h/2);
+                }
+            },
+            {
+                name: 'Single Character (A)',
+                setup: (ctx, w, h) => {
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, w, h);
+                    ctx.fillStyle = 'black';
+                    ctx.font = 'bold 100px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('A', w/2, h/2);
+                }
+            },
+            {
+                name: 'Numbers Only (12345)',
+                setup: (ctx, w, h) => {
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, w, h);
+                    ctx.fillStyle = 'black';
+                    ctx.font = 'bold 60px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('12345', w/2, h/2);
+                }
+            }
+        ];
+
+        const container = document.getElementById('canvasContainer');
+        
+        tests.forEach((test, idx) => {
+            debugLog(`Creating test image ${idx + 1}: ${test.name}`);
+            
+            const wrapper = document.createElement('div');
+            wrapper.style.display = 'inline-block';
+            wrapper.style.textAlign = 'center';
+            wrapper.style.margin = '10px';
+            
+            const label = document.createElement('p');
+            label.textContent = test.name;
+            wrapper.appendChild(label);
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 400;
+            canvas.height = 200;
+            canvas.id = `test-canvas-${idx}`;
+            
+            const ctx = canvas.getContext('2d');
+            test.setup(ctx, 400, 200);
+            
+            wrapper.appendChild(canvas);
+            container.appendChild(wrapper);
+            
+            // Log image data URL for manual testing
+            const dataUrl = canvas.toDataURL('image/png');
+            debugLog(`Test ${idx + 1} data URL length: ${dataUrl.length}`);
+        });
+        
+        debugLog('\nTest images created. Use these with the OCR application to debug the PPU models.');
+        debugLog('\nExpected results:');
+        debugLog('1. Original: "Hello World OCR Test"');
+        debugLog('2. Inverted: "Hello World OCR Test"');
+        debugLog('3. Simple: "ABC123"');
+        debugLog('4. Single: "A"');
+        debugLog('5. Numbers: "12345"');
+        
+        // Add download links
+        const downloadSection = document.createElement('div');
+        downloadSection.className = 'test-section';
+        downloadSection.innerHTML = '<h2>Download Test Images</h2>';
+        
+        tests.forEach((test, idx) => {
+            const canvas = document.getElementById(`test-canvas-${idx}`);
+            const link = document.createElement('a');
+            link.href = canvas.toDataURL('image/png');
+            link.download = `test-${idx + 1}-${test.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}.png`;
+            link.textContent = `Download ${test.name}`;
+            link.style.display = 'block';
+            link.style.margin = '5px';
+            downloadSection.appendChild(link);
+        });
+        
+        document.body.appendChild(downloadSection);
+    </script>
+</body>
+</html>
