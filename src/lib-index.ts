@@ -16,17 +16,13 @@ export { isPPUModel, decodePPUOutput } from './core/ppu-model-handler'
 // Types
 export type {
   OCRResult,
-  TextLine,
-  WordBox,
+  TextRegion,
   BoundingBox,
   Point,
   ProcessingOptions,
-  ProcessOptions,
-  PreprocessConfig,
-  PostprocessConfig,
+  WorkerMessage,
   OCRProgress,
-  ProcessingTime,
-  DebugInfo
+  DeskewResult
 } from './types/ocr.types'
 
 export type {
@@ -40,7 +36,7 @@ export type {
 } from './types/config.types'
 
 export type {
-  ImageInput,
+  ImageInputType as ImageInput,
   LoadedImage
 } from './core/image-loader'
 

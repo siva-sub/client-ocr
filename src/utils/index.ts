@@ -1,26 +1,25 @@
 // Utility function exports
 
-import type { ImageInput, LoadedImage } from '../core/image-loader'
-import type { PreprocessConfig } from '../types/ocr.types'
+import type { ImageInputType } from '../core/image-loader'
 import type { LanguageCode } from '../types/config.types'
 
 /**
  * Preprocess an image with various enhancements
  */
 export async function preprocessImage(
-  input: ImageInput, 
-  config: PreprocessConfig
+  _input: ImageInputType, 
+  _config: any
 ): Promise<ImageData> {
   // Implementation would use OpenCV.js
-  throw new Error('preprocessImage: Implementation required')
+  throw new Error('preprocessImage: Implementation required - use ImagePreprocessor class instead')
 }
 
 /**
  * Resize an image while maintaining quality
  */
 export async function resizeImage(
-  input: ImageInput,
-  options: {
+  _input: ImageInputType,
+  _options?: {
     maxWidth?: number
     maxHeight?: number
     maintainAspectRatio?: boolean
@@ -36,7 +35,7 @@ export async function resizeImage(
  * Detect the primary language of text
  */
 export async function detectLanguage(
-  input: ImageInput | string
+  _input: ImageInputType | string
 ): Promise<LanguageCode> {
   // Simple implementation - would need actual language detection
   return 'en'
@@ -91,7 +90,7 @@ export function extractPatterns(text: string): {
  */
 export function mergeTextLines(
   lines: Array<{ text: string; box: any }>,
-  options?: {
+  _options?: {
     lineSpacing?: number
     horizontalSpacing?: number
     preserveLayout?: boolean
