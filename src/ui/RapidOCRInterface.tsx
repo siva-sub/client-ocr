@@ -1,5 +1,5 @@
 import type { OCRResult } from '../types/ocr.types'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Paper, Stack, Tabs, Alert, Select, Group, Text, Badge, Switch, Divider, Title, Button, Tooltip, Card, Anchor, Container } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconPhoto, IconTextRecognition, IconSettings, IconInfoCircle, IconLanguage, IconBrain, IconBrandGithub, IconDownload, IconSparkles, IconLicense } from '@tabler/icons-react'
@@ -7,6 +7,7 @@ import { ImageUpload } from './ImageUpload'
 import { PdfUpload } from './PdfUpload'
 import { ResultViewer } from './ResultViewer'
 import { PerformanceMonitor } from './PerformanceMonitor'
+import { PdfResultViewer } from './PdfResultViewer'
 import { PwaInstallPrompt } from './PwaInstallPrompt'
 import { LanguageSelector } from './LanguageSelector'
 import { OCRProgress } from './OCRProgress'
@@ -17,8 +18,12 @@ export function RapidOCRInterface() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [ocrProgress, setOcrProgress] = useState<OCRProgressType | null>(null)
   const [result, setResult] = useState<OCRResult | null>(null)
+  const [pdfResult, setPdfResult] = useState<any | null>(null)
   const [engine, setEngine] = useState<RapidOCREngine | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
+  
+  // Ref to maintain engine reference
+  const engineRef = useRef<RapidOCREngine | null>(null)
   
   // Configuration state
   const [language, setLanguage] = useState<LangType>('en')
@@ -68,6 +73,7 @@ export function RapidOCRInterface() {
       await newEngine.initialize()
       
       setEngine(newEngine)
+      engineRef.current = newEngine
       setIsInitialized(true)
       
       notifications.update({
@@ -187,16 +193,22 @@ export function RapidOCRInterface() {
     setIsProcessing(true)
     setOcrProgress(null)
     setResult(null) // Clear previous results
+    setPdfResult(null) // Clear previous PDF results
     
     try {
-      if (!engine || !isInitialized) {
+      // Initialize engine if needed
+      let ocrEngine = engine
+      if (!ocrEngine || !isInitialized) {
         await initializeEngine()
-        if (!engine) return
+        ocrEngine = engineRef.current
+        if (!ocrEngine) {
+          throw new Error('Failed to initialize OCR engine')
+        }
       }
       
       notifications.show({
         title: 'Processing PDF',
-        message: 'Converting PDF pages to images...',
+        message: 'Loading PDF document...',
         color: 'blue'
       })
       
@@ -210,10 +222,25 @@ export function RapidOCRInterface() {
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
       
       const totalPages = pdf.numPages
-      const results: string[] = []
+      const results: any[] = []
+      const regions: any[] = []
+      const startTime = performance.now()
+      
+      notifications.show({
+        title: 'Processing PDF',
+        message: `Processing ${totalPages} pages...`,
+        color: 'blue'
+      })
       
       // Process each page
       for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        // Update progress
+        setOcrProgress({
+          stage: 'recognition' as const,
+          progress: ((pageNum - 1) / totalPages) * 100,
+          currentModel: `PDF Page ${pageNum}/${totalPages}`
+        } as any)
+        
         const page = await pdf.getPage(pageNum)
         
         // Render page to canvas
@@ -232,29 +259,65 @@ export function RapidOCRInterface() {
         
         // Get image data and process
         const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
-        const pageResults = await engine.process(
+        
+        // Process with OCR engine directly using raw image data
+        const pageRegions = await ocrEngine.process(
           imageData.data,
           imageData.width,
           imageData.height
         )
         
-        const pageText = pageResults.map(r => r.text).join(' ')
-        results.push(`Page ${pageNum}:\n${pageText}`)
+        // Extract text from regions
+        const pageText = pageRegions.map(r => r.text).join(' ')
+        results.push({
+          page: pageNum,
+          text: pageText,
+          regions: pageRegions
+        })
+        
+        // Collect all regions with page info
+        regions.push(...pageRegions.map((r: any) => ({
+          ...r,
+          page: pageNum
+        })))
       }
       
       // Combine results
-      const combinedText = results.join('\n\n')
+      const combinedText = results.map(r => `Page ${r.page}:\n${r.text}`).join('\n\n')
+      const endTime = performance.now()
       
+      // Update final progress
+      setOcrProgress({
+        stage: 'recognition' as const,
+        progress: 100
+      })
+      
+      // Set PDF-specific result
+      setPdfResult({
+        pages: results,
+        totalPages: totalPages,
+        processingTime: endTime - startTime,
+        totalRegions: regions.length
+      })
+      
+      // Also set regular result for compatibility
       setResult({
         fullText: combinedText,
-        regions: [],
-        processingTime: performance.now(),
-        method: 'rapidocr'
+        regions: regions,
+        processingTime: endTime - startTime,
+        method: 'rapidocr',
+        metadata: {
+          imageWidth: 0,
+          imageHeight: 0,
+          language,
+          ocrVersion,
+          modelType
+        }
       })
       
       notifications.show({
         title: 'PDF Processing Complete',
-        message: `Successfully processed ${totalPages} pages`,
+        message: `Successfully processed ${totalPages} pages with ${regions.length} text regions`,
         color: 'green'
       })
       
@@ -284,6 +347,7 @@ export function RapidOCRInterface() {
     if (engine) {
       engine.dispose()
       setEngine(null)
+      engineRef.current = null
     }
   }
 
@@ -372,7 +436,11 @@ export function RapidOCRInterface() {
               <OCRProgress progress={ocrProgress} isProcessing={isProcessing} />
             )}
             
-            {result && <ResultViewer result={result} modelId={`${language}-${ocrVersion}-${modelType}`} />}
+            {pdfResult ? (
+              <PdfResultViewer result={pdfResult} />
+            ) : (
+              result && <ResultViewer result={result} modelId={`${language}-${ocrVersion}-${modelType}`} />
+            )}
             {result && <PerformanceMonitor result={result} />}
           </Stack>
         </Tabs.Panel>
