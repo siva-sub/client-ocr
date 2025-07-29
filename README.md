@@ -16,7 +16,7 @@
 
 ---
 
-A high-performance, privacy-focused OCR solution that runs entirely in the browser using ONNX Runtime with both RapidOCR and PPU PaddleOCR models. Process text from images without sending data to any server - everything happens locally on your device. Supporting 100+ languages with state-of-the-art accuracy!
+A high-performance, privacy-focused OCR solution that runs entirely in the browser using ONNX Runtime with both RapidOCR and PPU PaddleOCR models. Process text from images and PDF documents without sending data to any server - everything happens locally on your device. Supporting 100+ languages with state-of-the-art accuracy!
 
 ## 📸 Screenshots
 
@@ -93,7 +93,7 @@ Unlike cloud-based OCR services (Google Vision, AWS Textract, Azure OCR), your s
 - 📱 **PWA Support**: Works offline after initial load with service worker caching
 - 🖼️ **Image Preprocessing**: Built-in OpenCV.js for auto-enhancement, denoising, deskewing
 - 🔄 **Auto-Rotation**: Automatically detects and corrects upside-down text
-- 📄 **PDF Support**: Extract text from PDFs with native text layer detection
+- 📄 **PDF Support**: Extract text from PDFs page-by-page with detailed results
 - 🎨 **Modern UI**: Beautiful, responsive interface built with React & Mantine UI
 - 📦 **Smart Caching**: Models cached locally for instant subsequent use
 - 🔧 **Developer Friendly**: Simple API, TypeScript support, React components
