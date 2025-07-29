@@ -1,5 +1,5 @@
 import type { OCRResult } from '../types/ocr.types'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Paper, Stack, Tabs, Alert, Select, Group, Text, Badge, Switch, Divider, Title, Button, Tooltip, Card, Anchor, Container } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconPhoto, IconTextRecognition, IconSettings, IconInfoCircle, IconLanguage, IconBrain, IconBrandGithub, IconDownload, IconSparkles, IconLicense } from '@tabler/icons-react'
@@ -92,6 +92,17 @@ export function RapidOCRInterface() {
   }, [language, ocrVersion, modelType, useDetection, useClassification])
 
   const processImage = async (file: File) => {
+    console.log('Processing Image:', file.name, file.type)
+    if (file.type === 'application/pdf') {
+      console.error('PDF uploaded to image processor! Redirecting to PDF processor...')
+      notifications.show({
+        title: 'Wrong Tab',
+        message: 'Please use the PDF tab for PDF files',
+        color: 'yellow'
+      })
+      return
+    }
+    
     if (!engine || !isInitialized) {
       await initializeEngine()
       if (!engine) return
@@ -172,8 +183,10 @@ export function RapidOCRInterface() {
   }
 
   const processPdf = async (file: File) => {
+    console.log('Processing PDF:', file.name, file.type)
     setIsProcessing(true)
     setOcrProgress(null)
+    setResult(null) // Clear previous results
     
     try {
       if (!engine || !isInitialized) {
@@ -258,6 +271,13 @@ export function RapidOCRInterface() {
     }
   }
 
+  // Auto-initialize on mount
+  useEffect(() => {
+    if (!isInitialized && !engine && !isProcessing) {
+      initializeEngine()
+    }
+  }, []) // Only run on mount
+
   // Check if we need to reinitialize when settings change
   const handleSettingChange = () => {
     setIsInitialized(false)
@@ -333,7 +353,7 @@ export function RapidOCRInterface() {
 
         <Tabs.Panel value="image" pt="md">
           <Stack gap="md">
-            <ImageUpload onUpload={processImage} isProcessing={isProcessing} />
+            <ImageUpload onUpload={processImage} isProcessing={isProcessing} isInitialized={isInitialized} />
             
             {(isProcessing || ocrProgress) && (
               <OCRProgress progress={ocrProgress} isProcessing={isProcessing} />
@@ -345,7 +365,16 @@ export function RapidOCRInterface() {
         </Tabs.Panel>
 
         <Tabs.Panel value="pdf" pt="md">
-          <PdfUpload onUpload={processPdf} isProcessing={isProcessing} />
+          <Stack gap="md">
+            <PdfUpload onUpload={processPdf} isProcessing={isProcessing} isInitialized={isInitialized} />
+            
+            {(isProcessing || ocrProgress) && (
+              <OCRProgress progress={ocrProgress} isProcessing={isProcessing} />
+            )}
+            
+            {result && <ResultViewer result={result} modelId={`${language}-${ocrVersion}-${modelType}`} />}
+            {result && <PerformanceMonitor result={result} />}
+          </Stack>
         </Tabs.Panel>
 
         <Tabs.Panel value="settings" pt="md">

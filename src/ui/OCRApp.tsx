@@ -341,15 +341,16 @@ export function OCRApp() {
       padding="md"
     >
       <AppShell.Header>
-        <Container size="xl" h="100%">
+        <Container size="xl" h="100%" px="sm">
           <Group h="100%" justify="space-between">
-            <Group>
-              <IconBrain size={28} />
-              <Title order={3}>Client-Side OCR</Title>
-              <Badge variant="light" color="blue">v2.0</Badge>
+            <Group gap="xs">
+              <IconBrain size={24} />
+              <Title order={4} hiddenFrom="sm">OCR</Title>
+              <Title order={3} visibleFrom="sm">Client-Side OCR</Title>
+              <Badge variant="light" color="blue" size="sm">v2.0</Badge>
             </Group>
             
-            <Group>
+            <Group visibleFrom="sm">
               <Tooltip label={`Switch to ${colorScheme === 'dark' ? 'light' : 'dark'} mode`}>
                 <ActionIcon
                   variant="default"
@@ -392,12 +393,29 @@ export function OCRApp() {
                 </ActionIcon>
               </Tooltip>
             </Group>
+            
+            <Group hiddenFrom="sm">
+                <ActionIcon
+                  variant="default"
+                  size="md"
+                  onClick={() => toggleColorScheme()}
+                >
+                  {colorScheme === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
+                </ActionIcon>
+                <ActionIcon
+                  variant="default"
+                  size="md"
+                  onClick={openSettings}
+                >
+                  <IconSettings size={16} />
+                </ActionIcon>
+              </Group>
           </Group>
         </Container>
       </AppShell.Header>
 
       <AppShell.Main>
-        <Container size="xl">
+        <Container size="xl" px="xs">
           <Stack gap="xl">
             {/* Main Content */}
             <Tabs defaultValue="ocr">

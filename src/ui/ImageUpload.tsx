@@ -6,9 +6,10 @@ import { IconUpload, IconPhoto, IconX, IconTrash } from '@tabler/icons-react'
 interface ImageUploadProps {
   onUpload: (file: File) => void
   isProcessing: boolean
+  isInitialized?: boolean
 }
 
-export function ImageUpload({ onUpload, isProcessing }: ImageUploadProps) {
+export function ImageUpload({ onUpload, isProcessing, isInitialized = true }: ImageUploadProps) {
   const [preview, setPreview] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
 
@@ -82,7 +83,7 @@ export function ImageUpload({ onUpload, isProcessing }: ImageUploadProps) {
       onReject={(files) => console.log('rejected files', files)}
       maxSize={5 * 1024 ** 2}
       accept={IMAGE_MIME_TYPE}
-      disabled={isProcessing}
+      disabled={isProcessing || !isInitialized}
     >
       <Group justify="center" gap="xl" mih={220} style={{ pointerEvents: 'none' }}>
         <Dropzone.Accept>
@@ -106,10 +107,10 @@ export function ImageUpload({ onUpload, isProcessing }: ImageUploadProps) {
 
         <div>
           <Text size="xl" inline>
-            Drag image here or click to select
+            {!isInitialized ? 'Initializing OCR Engine...' : 'Drag image here or click to select'}
           </Text>
           <Text size="sm" c="dimmed" inline mt={7}>
-            Attach an image file, it should not exceed 5mb
+            {!isInitialized ? 'Please wait while the engine loads' : 'Attach an image file, it should not exceed 5mb'}
           </Text>
         </div>
       </Group>

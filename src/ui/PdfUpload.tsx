@@ -5,16 +5,17 @@ import { IconUpload, IconFileTypePdf, IconX } from '@tabler/icons-react'
 interface PdfUploadProps {
   onUpload: (file: File) => void
   isProcessing: boolean
+  isInitialized?: boolean
 }
 
-export function PdfUpload({ onUpload, isProcessing }: PdfUploadProps) {
+export function PdfUpload({ onUpload, isProcessing, isInitialized = true }: PdfUploadProps) {
   return (
     <Dropzone
       onDrop={(files) => onUpload(files[0])}
       onReject={(files) => console.log('rejected files', files)}
       maxSize={10 * 1024 ** 2}
       accept={PDF_MIME_TYPE}
-      disabled={isProcessing}
+      disabled={isProcessing || !isInitialized}
     >
       <Group justify="center" gap="xl" mih={220} style={{ pointerEvents: 'none' }}>
         <Dropzone.Accept>
@@ -38,10 +39,10 @@ export function PdfUpload({ onUpload, isProcessing }: PdfUploadProps) {
 
         <div>
           <Text size="xl" inline>
-            Drag PDF here or click to select
+            {!isInitialized ? 'Initializing OCR Engine...' : 'Drag PDF here or click to select'}
           </Text>
           <Text size="sm" c="dimmed" inline mt={7}>
-            Attach a PDF file, it should not exceed 10mb
+            {!isInitialized ? 'Please wait while the engine loads' : 'Attach a PDF file, it should not exceed 10mb'}
           </Text>
         </div>
       </Group>
