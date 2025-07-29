@@ -15,8 +15,8 @@ preview.log
 
 # Documentation source
 documentation/
-docs/
 public/
+screenshots/
 
 # Examples and scripts
 examples/

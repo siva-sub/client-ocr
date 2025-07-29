@@ -3,14 +3,8 @@ import * as ort from 'onnxruntime-web'
 
 // Configure ONNX Runtime Web paths for both development and production
 export function configureONNXRuntime() {
-  // Set WASM paths based on environment
-  if (import.meta.env.PROD) {
-    // Production - use GitHub Pages URLs
-    ort.env.wasm.wasmPaths = 'https://siva-sub.github.io/client-ocr/'
-  } else {
-    // Development - use local paths
-    ort.env.wasm.wasmPaths = '/'
-  }
+  // Always use GitHub Pages URL for consistency
+  ort.env.wasm.wasmPaths = 'https://siva-sub.github.io/client-ocr/'
   
   // WebGL is enabled by default when available
   

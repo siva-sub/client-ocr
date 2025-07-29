@@ -2,7 +2,7 @@ import type { BoundingBox } from '../types/ocr.types'
 import type { OCRConfig, LangType, OCRVersion, ModelType } from './ocr-config'
 import { getLanguageConfig } from './ocr-config'
 import { getLanguageModelPaths, LANGUAGE_MODELS } from './language-models'
-import { rotateImage180 } from '../workers/classification.worker.v2'
+// import { rotateImage180 } from '../workers/classification.worker.v2' // Not needed since recognition handles original image
 import { ModelDownloader, type DownloadProgress } from './model-downloader'
 import { WordSegmentation } from './word-segmentation'
 
@@ -199,30 +199,25 @@ export class RapidOCREngine {
       return results
     }
     
-    // Crop images from boxes
-    const croppedImages = boxes.map(box => this.cropImage(imageData, width, height, box))
+    console.log('Detection boxes:', boxes.map(b => ({
+      x: Math.min(b.topLeft.x, b.bottomLeft.x),
+      y: Math.min(b.topLeft.y, b.topRight.y),
+      w: Math.max(b.topRight.x, b.bottomRight.x) - Math.min(b.topLeft.x, b.bottomLeft.x),
+      h: Math.max(b.bottomLeft.y, b.bottomRight.y) - Math.min(b.topLeft.y, b.topRight.y)
+    })))
     
     // Stage 2: Classification (rotation detection)
-    let processedImages = croppedImages
-    const angles: number[] = new Array(croppedImages.length).fill(0)
+    const angles: number[] = new Array(boxes.length).fill(0)
     
     if (this.config.global.use_cls && this.workers.classification) {
       this.reportProgress('classification', 0)
+      // Crop images only for classification
+      const croppedImages = boxes.map(box => this.cropImage(imageData, width, height, box))
       const classResults = await this.classify(croppedImages)
       
-      // Rotate images if needed
-      processedImages = croppedImages.map((img, i) => {
-        const { shouldRotate, angle } = classResults[i]
-        angles[i] = angle
-        
-        if (shouldRotate) {
-          return {
-            data: rotateImage180(img.data, img.width, img.height),
-            width: img.width,
-            height: img.height
-          }
-        }
-        return img
+      // Store rotation angles for each box
+      classResults.forEach((result, i) => {
+        angles[i] = result.angle
       })
       
       this.reportProgress('classification', 1)
@@ -231,7 +226,18 @@ export class RapidOCREngine {
     // Stage 3: Recognition
     if (this.config.global.use_rec && this.workers.recognition) {
       this.reportProgress('recognition', 0)
-      const recResults = await this.recognize(processedImages, boxes)
+      console.log(`Sending to recognition: image ${width}x${height}, boxes: ${boxes.length}`)
+      
+      // Debug: Check original image data
+      let nonZeroPixels = 0
+      for (let i = 0; i < Math.min(4000, imageData.length); i += 4) {
+        if (imageData[i] > 0 || imageData[i+1] > 0 || imageData[i+2] > 0) {
+          nonZeroPixels++
+        }
+      }
+      console.log(`Original image has ${nonZeroPixels} non-zero pixels in first 1000 pixels`)
+      
+      const recResults = await this.recognize(imageData, width, height, boxes)
       
       // Combine results
       for (let i = 0; i < boxes.length; i++) {
@@ -418,16 +424,12 @@ export class RapidOCREngine {
   }
   
   private async recognize(
-    images: Array<{ data: Uint8ClampedArray; width: number; height: number }>,
+    originalImageData: Uint8ClampedArray,
+    originalWidth: number,
+    originalHeight: number,
     boxes: BoundingBox[]
   ): Promise<Array<{ text: string; confidence: number }>> {
-    if (!this.workers.recognition) return images.map(() => ({ text: '', confidence: 0 }))
-    
-    // For recognition, we need to pass the original image and boxes
-    // This is a simplified version - in reality, we'd need to stitch images back
-    const fullImageData = images[0].data // Placeholder
-    const fullWidth = Math.max(...boxes.map(b => Math.max(b.topRight.x, b.bottomRight.x)))
-    const fullHeight = Math.max(...boxes.map(b => Math.max(b.bottomLeft.y, b.bottomRight.y)))
+    if (!this.workers.recognition) return boxes.map(() => ({ text: '', confidence: 0 }))
     
     return new Promise((resolve, reject) => {
       const handler = (event: MessageEvent) => {
@@ -447,9 +449,9 @@ export class RapidOCREngine {
       this.workers.recognition!.postMessage({
         type: 'PROCESS',
         data: {
-          imageData: fullImageData,
-          width: fullWidth,
-          height: fullHeight,
+          imageData: originalImageData,
+          width: originalWidth,
+          height: originalHeight,
           boxes
         }
       })

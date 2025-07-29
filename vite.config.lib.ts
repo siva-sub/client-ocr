@@ -6,7 +6,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: {
-        index: resolve(__dirname, 'src/index.ts'),
+        index: resolve(__dirname, 'src/lib-index.ts'),
         'react/index': resolve(__dirname, 'src/react.tsx')
       },
       formats: ['es', 'cjs'],

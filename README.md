@@ -2,7 +2,7 @@
 
 # 🔍 Client-Side OCR with ONNX Runtime
 
-**Extract text from images directly in your browser - no server required! Now with RapidOCR integration for 14+ languages!**
+**Extract text from images directly in your browser - no server required! Now with RapidOCR and PPU PaddleOCR integration for 100+ languages!**
 
 [![npm version](https://img.shields.io/npm/v/client-side-ocr.svg)](https://www.npmjs.com/package/client-side-ocr)
 [![npm downloads](https://img.shields.io/npm/dm/client-side-ocr.svg)](https://www.npmjs.com/package/client-side-ocr)
@@ -10,13 +10,23 @@
 [![Demo](https://img.shields.io/badge/demo-live-brightgreen.svg)](https://siva-sub.github.io/client-ocr/)
 [![GitHub stars](https://img.shields.io/github/stars/siva-sub/client-ocr?style=social)](https://github.com/siva-sub/client-ocr)
 
-[**Live Demo**](https://siva-sub.github.io/client-ocr/) | [**NPM Package**](https://www.npmjs.com/package/client-side-ocr) | [**Documentation**](./documentation/USAGE.md) | [**API Reference**](./documentation/API.md)
+[**Live Demo**](https://siva-sub.github.io/client-ocr/) | [**NPM Package**](https://www.npmjs.com/package/client-side-ocr) | [**Documentation**](./docs/USAGE.md) | [**API Reference**](./docs/API.md) | [**Troubleshooting**](./docs/TROUBLESHOOTING.md)
 
 </div>
 
 ---
 
-A high-performance, privacy-focused OCR solution that runs entirely in the browser using ONNX Runtime and RapidOCR models. Process text from images without sending data to any server - everything happens locally on your device. Now with RapidOCR integration supporting 100+ languages with state-of-the-art accuracy!
+A high-performance, privacy-focused OCR solution that runs entirely in the browser using ONNX Runtime with both RapidOCR and PPU PaddleOCR models. Process text from images without sending data to any server - everything happens locally on your device. Supporting 100+ languages with state-of-the-art accuracy!
+
+## 📸 Screenshots
+
+<div align="center">
+
+| Main Interface | Preprocessing Options | Performance Metrics |
+|----------------|----------------------|---------------------|
+| ![Main Interface](./screenshots/main-interface.png) | ![Preprocessing](./screenshots/preprocessing-tab.png) | ![Performance](./screenshots/performance-tab.png) |
+
+</div>
 
 ## 🚀 Why Choose Client-Side OCR?
 
@@ -61,6 +71,7 @@ Unlike cloud-based OCR services (Google Vision, AWS Textract, Azure OCR), your s
 - 🔤 **Word segmentation**: Separate text into individual words
 - 📱 **Mobile optimized**: Responsive design with camera capture
 - 🚀 **Progressive Web App**: Install as native app on any device
+- 🎯 **Multiple Model Support**: Choose between RapidOCR and PPU models
 
 ## 🎯 Real-World Use Cases
 
@@ -77,7 +88,7 @@ Unlike cloud-based OCR services (Google Vision, AWS Textract, Azure OCR), your s
 ## ✨ Core Features
 
 - 🚀 **100% Client-Side**: All OCR processing happens in the browser - no data leaves your device
-- 🎯 **High Accuracy**: Uses state-of-the-art RapidOCR and PaddleOCR v4/v5 models
+- 🎯 **High Accuracy**: Uses state-of-the-art RapidOCR and PPU PaddleOCR v4/v5 models
 - 🌍 **100+ Languages**: Support for major world languages including Chinese, English, Japanese, Korean, Arabic, Hindi, Tamil, and more
 - 📱 **PWA Support**: Works offline after initial load with service worker caching
 - 🖼️ **Image Preprocessing**: Built-in OpenCV.js for auto-enhancement, denoising, deskewing
@@ -108,7 +119,7 @@ I created this module while experimenting and learning about extracting data fro
 - **Frontend**: React 19 + TypeScript + Vite
 - **UI Framework**: Mantine UI v8
 - **OCR Engine**: ONNX Runtime Web
-- **Models**: RapidOCR + PaddleOCR (PP-OCRv4/v5)
+- **Models**: RapidOCR + PPU PaddleOCR (PP-OCRv4/v5)
 - **Processing**: RapidOCR techniques (CTC decoding, DB postprocessing)
 - **PWA**: Vite PWA Plugin + Workbox
 
@@ -256,15 +267,10 @@ function App() {
 
 ### 📚 Comprehensive Guides
 
-- **[Usage Guide](./documentation/USAGE.md)** - Complete usage documentation with examples
-- **[API Reference](./documentation/API.md)** - Detailed API documentation
-- **[Model Documentation](./MODELS.md)** - Information about available OCR models
-
-### 📸 Screenshots
-
-| Home Page | Model Selection | Settings |
-|-----------|-----------------|----------|
-| ![Home](./documentation/screenshots/home-page.png) | ![Models](./documentation/screenshots/model-selection.png) | ![Settings](./documentation/screenshots/settings-page.png) |
+- **[Usage Guide](./docs/USAGE.md)** - Complete usage documentation with examples
+- **[API Reference](./docs/API.md)** - Detailed API documentation
+- **[Model Documentation](./docs/MODELS.md)** - Information about available OCR models
+- **[Troubleshooting Guide](./docs/TROUBLESHOOTING.md)** - Common issues and solutions
 
 ## API Overview
 
@@ -306,23 +312,23 @@ For detailed API documentation, see [API Reference](./docs/API.md).
 
 ## Model Support
 
-The library supports RapidOCR models with multi-language capabilities:
+The library supports both RapidOCR and PPU PaddleOCR models with multi-language capabilities:
 
-### Supported Languages (14+)
+### Supported Languages (100+)
 
-| Language | Code | PP-OCRv4 | PP-OCRv5 | Notes |
+| Language | Code | RapidOCR | PPU Models | Notes |
 |----------|------|----------|------------|-------|
 | Chinese | ch | ✅ | ✅ | Simplified & Traditional |
 | English | en | ✅ | ✅ | Full support |
-| French | fr | ✅ | ❌ | PP-OCRv4 only |
-| German | de | ✅ | ❌ | PP-OCRv4 only |
+| French | fr | ✅ | ❌ | RapidOCR only |
+| German | de | ✅ | ❌ | RapidOCR only |
 | Japanese | ja | ✅ | ✅ | Hiragana, Katakana, Kanji |
 | Korean | ko | ✅ | ✅ | Hangul support |
 | Russian | ru | ✅ | ❌ | Cyrillic script |
 | Portuguese | pt | ✅ | ❌ | Brazilian & European |
 | Spanish | es | ✅ | ❌ | Latin American & European |
-| Italian | it | ✅ | ❌ | PP-OCRv4 only |
-| Indonesian | id | ✅ | ❌ | PP-OCRv4 only |
+| Italian | it | ✅ | ❌ | RapidOCR only |
+| Indonesian | id | ✅ | ❌ | RapidOCR only |
 | Vietnamese | vi | ✅ | ❌ | With tone marks |
 | Persian | fa | ✅ | ❌ | Right-to-left support |
 | Kannada | ka | ✅ | ❌ | Indic script support |
@@ -347,19 +353,17 @@ The library supports RapidOCR models with multi-language capabilities:
   - Embedded dictionaries in model metadata
   - Dynamic width calculation based on aspect ratio
   - Standard normalization ((pixel/255 - 0.5) / 0.5)
+  - PPU models: Red channel only for grayscale, 0-based dictionary indexing
   
 - **Classification Models**: Text orientation detection:
   - Detects 0° and 180° rotations
   - Batch processing with aspect ratio sorting
   - Automatic rotation correction
 
-### RapidOCR Integration
+### Model Sources
 
-All models are hosted on RapidOCR's ModelScope repository and include:
-- Meta ONNX models with embedded character dictionaries
-- SHA256 checksums for integrity verification
-- Automatic model downloading with progress tracking
-- Efficient caching for offline use
+- **RapidOCR Models**: Hosted on RapidOCR's ModelScope repository
+- **PPU Models**: Downloaded from PPU PaddleOCR repository with special preprocessing
 
 ## Architecture
 
@@ -380,9 +384,9 @@ graph TD
     K --> L[Word Segmentation]
     L --> M[Final Output]
     
-    subgraph RapidOCR Processing Pipeline
-        E -->|ImageNet Norm| F
-        I -->|Standard Norm| J
+    subgraph Processing Pipeline
+        E -->|ImageNet/Standard Norm| F
+        I -->|Model-specific Norm| J
         K -->|Dictionary| L
     end
     
@@ -405,12 +409,14 @@ graph TD
 - Automatic model caching with SHA256 verification
 - Smart preprocessing pipeline selection based on model type
 - Efficient memory management with typed arrays
+- Width limiting for PPU models to prevent memory issues
 
 ### Advanced Features
 - **Word-level segmentation**: Separates Chinese characters from English/numbers
 - **Confidence scoring**: Per-character and per-line confidence metrics
 - **Rotation detection**: Automatic 180° text correction
 - **Dynamic resolution**: Adaptive image resizing for optimal accuracy
+- **Stack overflow prevention**: Safe handling of large documents
 
 ## Browser Support
 
@@ -431,19 +437,22 @@ client-ocr/
 │   └── types/         # TypeScript definitions
 ├── public/
 │   └── models/        # ONNX models and dictionaries
+├── docs/              # Documentation
+├── screenshots/       # Application screenshots
 └── .github/
     └── workflows/     # GitHub Actions for deployment
 ```
 
 ### Key Components
 - `RapidOCREngine`: Main OCR orchestrator with multi-language support
-- `DetPreProcess`: Detection preprocessing with ImageNet normalization
+- `PPUModelHandler`: Special handling for PPU PaddleOCR models
+- `DetPreProcess`: Detection preprocessing with model-specific normalization
 - `RecPreProcess`: Recognition preprocessing with dynamic width calculation
 - `ClsPreProcess`: Classification preprocessing for rotation detection
 - `CTCLabelDecode`: CTC decoding with word segmentation
 - `DBPostProcess`: DB postprocessing with unclip expansion
-- `ModelDownloader`: Automatic model fetching from RapidOCR repository
-- `ONNXMetadataExtractor`: Extract embedded dictionaries from models
+- `ModelDownloader`: Automatic model fetching from multiple sources
+- `MetaONNXLoader`: Extract embedded dictionaries from models
 
 ## 🤝 Contributing
 
@@ -465,12 +474,15 @@ Special thanks to:
 ## 🚀 What's New in v2.0
 
 - **RapidOCR Integration**: Complete integration with RapidOCR processing pipeline
-- **14+ Language Support**: Added support for multiple languages beyond English and Chinese
+- **PPU Model Support**: Added support for PPU PaddleOCR models with special preprocessing
+- **100+ Language Support**: Extended language support beyond the original 14
 - **Advanced Processing**: CTC decoding, DB postprocessing, and word segmentation
 - **Model Auto-Download**: Automatic model fetching with progress tracking
 - **Embedded Dictionaries**: Models now include character dictionaries in metadata
 - **Improved Accuracy**: Better preprocessing with proper normalization techniques
 - **Batch Optimization**: Aspect ratio sorting for efficient batch processing
+- **Stack Overflow Prevention**: Safe handling of large documents without memory issues
+- **Enhanced UI**: Modern interface with tabs for OCR, preprocessing, and performance
 
 ---
 

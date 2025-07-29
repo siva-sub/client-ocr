@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chinese OCR Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        #testCanvas {
+            border: 1px solid #ccc;
+            background: white;
+            display: block;
+            margin: 20px auto;
+        }
+        #testImage {
+            display: block;
+            margin: 20px auto;
+            max-width: 100%;
+        }
+        .info {
+            text-align: center;
+            margin: 20px;
+            font-size: 16px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">Chinese OCR Test Image</h1>
+    <div class="info">
+        Testing with Chinese characters to verify if PPU models are Chinese models
+    </div>
+    
+    <canvas id="testCanvas" width="400" height="200"></canvas>
+    <img id="testImage" alt="Chinese OCR Test">
+    
+    <div class="info">
+        <p>Text content: "你好世界" (Hello World in Chinese)</p>
+        <p>Additional text: "文字识别" (Text Recognition)</p>
+    </div>
+
+    <script>
+        // Create test image with Chinese text
+        const canvas = document.getElementById('testCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // White background
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, 400, 200);
+        
+        // Black text
+        ctx.fillStyle = 'black';
+        ctx.font = 'bold 48px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Draw Chinese text
+        ctx.fillText('你好世界', 200, 70);
+        ctx.fillText('文字识别', 200, 130);
+        
+        // Convert to image
+        canvas.toBlob(blob => {
+            const url = URL.createObjectURL(blob);
+            document.getElementById('testImage').src = url;
+            
+            // Also save as data URL for easy testing
+            const dataUrl = canvas.toDataURL('image/png');
+            console.log('Chinese test image created');
+            
+            // Create download link
+            const downloadLink = document.createElement('a');
+            downloadLink.href = dataUrl;
+            downloadLink.download = 'test-chinese-ocr.png';
+            downloadLink.textContent = 'Download Test Image';
+            downloadLink.style.display = 'block';
+            downloadLink.style.textAlign = 'center';
+            downloadLink.style.marginTop = '20px';
+            document.body.appendChild(downloadLink);
+        });
+    </script>
+</body>
+</html>

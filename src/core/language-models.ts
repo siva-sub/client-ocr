@@ -576,6 +576,27 @@ export function getLanguageModelPaths(
   cls?: string | ModelInfo
   dict?: string
 } {
+  // Override for English to use PPU models from GitHub
+  if (lang === 'en' && version === 'PP-OCRv4' && modelType === 'mobile') {
+    const ppuBaseUrl = 'https://siva-sub.github.io/client-ocr/models/ppu-paddle-ocr'
+    
+    return {
+      det: {
+        url: `${ppuBaseUrl}/PP-OCRv5_mobile_det_infer.onnx`,
+        sha256: undefined
+      },
+      rec: {
+        url: `${ppuBaseUrl}/en_PP-OCRv4_mobile_rec_infer.onnx`,
+        dictUrl: `${ppuBaseUrl}/en_dict.txt`,
+        sha256: undefined
+      },
+      cls: {
+        url: `${RAPIDOCR_BASE_URL}/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx`,
+        sha256: 'e47acedf663230f8863ff1ab0e64dd2d82b838fceb5957146dab185a89d6215c'
+      }
+    }
+  }
+  
   const langModel = LANGUAGE_MODELS[lang]
   if (!langModel) {
     throw new Error(`Language ${lang} not supported`)

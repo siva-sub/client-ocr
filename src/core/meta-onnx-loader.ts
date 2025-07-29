@@ -1,4 +1,5 @@
 import * as ort from 'onnxruntime-web'
+import { isPPUModel, loadPPUDictionary } from './ppu-model-handler'
 
 export interface MetaONNXModel {
   session: ort.InferenceSession
@@ -107,6 +108,13 @@ export class MetaONNXLoader {
       try {
         const response = await fetch(fallbackDictPath)
         const text = await response.text()
+        
+        // Use PPU-specific dictionary loading if this is a PPU model
+        if (isPPUModel(fallbackDictPath)) {
+          return loadPPUDictionary(text)
+        }
+        
+        // For non-PPU models, filter empty lines
         return text.split('\n').filter(line => line.length > 0)
       } catch (error) {
         console.error('Failed to load external dictionary:', error)
